@@ -9,8 +9,7 @@ FactIQ account.
 
 ## Install
 
-Inside Claude Code (requires GitHub access to this repo — `gh auth login`
-or equivalent git credentials):
+Inside Claude Code:
 
 ```
 /plugin marketplace add defog-ai/factiq-skill
