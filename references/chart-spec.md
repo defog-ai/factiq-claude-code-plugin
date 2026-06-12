@@ -95,13 +95,14 @@ SQL, computations — ending in a single `output` node:
   "nodes": [
     {
       "id": "sql1", "type": "sql", "inputs": [],
-      "title": "BLS unemployment rate",
-      "summary": "Monthly LNS14000000 from bls.data_points, 2019–2025",
-      "detail": "SELECT date, value FROM data_points WHERE series_id = 'LNS14000000' ...",
-      "code": "SELECT date, value FROM data_points WHERE series_id = 'LNS14000000' ...",
+      "title": "BLS unemployment rates",
+      "summary": "Monthly U-3 and U-6 from bls.data_points, 2019–2025",
+      "detail": "",
+      "code": "SELECT date, series_id, value\nFROM data_points\nWHERE series_id IN ('LNS14000000', 'LNS13327709')\n  AND date >= '2019-01-01'\nORDER BY date",
       "code_language": "sql",
       "series_refs": [
-        { "schema_name": "bls", "series_id": "LNS14000000", "title": "Unemployment Rate" }
+        { "schema_name": "bls", "series_id": "LNS14000000", "title": "Unemployment Rate (U-3)" },
+        { "schema_name": "bls", "series_id": "LNS13327709", "title": "Total unemployed plus marginally attached (U-6)" }
       ]
     },
     {
@@ -113,7 +114,7 @@ SQL, computations — ending in a single `output` node:
     {
       "id": "out", "type": "output", "inputs": ["calc"],
       "title": "US unemployment rate, 2019–2025",
-      "summary": "Line chart of the monthly rate with YoY overlay",
+      "summary": "Line chart of U-3 and U-6 with YoY overlay",
       "detail": ""
     }
   ]
@@ -128,6 +129,21 @@ exact SQL or Python you ran here), `series_refs[]`
 `web_sources[]` (`{url, title}`) for `web` nodes, and `market_ticker` for
 `market` nodes. One node per real step; exactly one `output` node, referenced
 by `root_id`.
+
+Two rules the panel depends on:
+
+- **`code` is formatted, multi-line code.** It renders verbatim in a code
+  block — a query collapsed onto one line shows up as one unreadable line.
+  Embed real newlines (`\n` in the JSON string) exactly as you would
+  present the SQL or Python to a reader. The same goes for `code` on
+  `code`-type nodes: include the actual script lines you ran, not a
+  one-line paraphrase.
+- **`series_refs` is the complete list.** Include every series the step
+  actually used — every id in the query's `IN (...)` list or filter, with
+  its real title — not one representative example. Each ref becomes a link
+  on the share page; readers use them to audit the chart. If a query
+  aggregates a very large set (say 40+ series), list the largest
+  contributors and state the full count in `summary`.
 
 ## Workflow
 

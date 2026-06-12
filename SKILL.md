@@ -137,7 +137,10 @@ Ground rules:
 - **Cite sources and lineage.** Every chart should carry `sources` (the
   datasets behind it) and `lineage` (the SQL/computation steps you actually
   ran). Charts without lineage get a generic "uploaded data" stub — fine,
-  but real lineage makes the "How we built this" panel meaningful.
+  but real lineage makes the "How we built this" panel meaningful. Lineage
+  `code` renders verbatim in a code block, so write it as formatted
+  multi-line SQL/Python — never collapsed onto one line — and list **every**
+  series the step touched in `series_refs`, not a single representative one.
 - **Don't pad.** If the data only supports one chart, publish a quick chart
   instead of inflating a report.
 

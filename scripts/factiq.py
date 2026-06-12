@@ -19,6 +19,7 @@ import argparse
 import getpass
 import json
 import os
+import re
 import stat
 import sys
 import time
@@ -344,6 +345,53 @@ def cmd_earnings(args: argparse.Namespace) -> None:
     emit(api_request(args, "POST", "/tools/earnings", body), args)
 
 
+# Quoted SQL literals that look like series ids (letters + digits, e.g.
+# 'LNS14000000' or 'us_census_hs_M_10d_2846100010_5700') — used to spot
+# lineage nodes whose series_refs list fewer series than the query touches.
+SERIES_ID_LITERAL_RE = re.compile(r"'([A-Za-z0-9_]{6,})'")
+
+
+def lint_lineage(lineage: object, where: str) -> None:
+    """Warn about lineage that will render poorly on the share page.
+
+    Warnings only — nothing here blocks publishing. The two defects the
+    page cannot fix itself: code collapsed onto a single line (rendered
+    verbatim in a code block) and series_refs listing one representative
+    series instead of every series the step used.
+    """
+    nodes = lineage.get("nodes") if isinstance(lineage, dict) else None
+    if not isinstance(nodes, list):
+        return
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        label = f"{where} lineage node '{node.get('id', '?')}'"
+        code = node.get("code")
+        code = code.strip() if isinstance(code, str) else ""
+        if len(code) > 80 and "\n" not in code:
+            print(
+                f"warning: {label} has its code collapsed onto one line — it "
+                "renders verbatim in a code block, so embed real newlines "
+                "(formatted SQL/Python)",
+                file=sys.stderr,
+            )
+        if node.get("type") == "sql" and code:
+            refs = node.get("series_refs") or []
+            ids_in_code = {
+                lit
+                for lit in SERIES_ID_LITERAL_RE.findall(code)
+                if any(c.isdigit() for c in lit) and any(c.isalpha() for c in lit)
+            }
+            if len(ids_in_code) > len(refs):
+                print(
+                    f"warning: {label} queries {len(ids_in_code)} series-like "
+                    f"ids but series_refs lists only {len(refs)} — list every "
+                    "series the query used (see the lineage rules in the "
+                    "references)",
+                    file=sys.stderr,
+                )
+
+
 def cmd_share_chart(args: argparse.Namespace) -> None:
     try:
         with open(args.spec) as f:
@@ -379,6 +427,8 @@ def cmd_share_chart(args: argparse.Namespace) -> None:
             "'How we built this' panel (see references/chart-spec.md)",
             file=sys.stderr,
         )
+    else:
+        lint_lineage(chart["lineage"], "chart spec")
     if args.question:
         body["question"] = args.question
     body.setdefault("source", "factiq-skill")
@@ -466,6 +516,8 @@ def cmd_share_report(args: argparse.Namespace) -> None:
                     "panel will be a generic stub (see references/report-spec.md)",
                     file=sys.stderr,
                 )
+            else:
+                lint_lineage(chart["lineage"], where)
     if chart_count == 0:
         fail("Report needs at least one chart across its sections.")
 
