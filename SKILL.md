@@ -7,19 +7,30 @@ description: >
   customs, India MOSPI/RBI/trade, Singapore, IMF, World Bank), stock quotes
   and fundamentals, commodities/forex, and earnings-call intelligence. Use
   when the user asks about unemployment, inflation, GDP, trade flows, energy,
-  wages, markets, or wants a shareable economic chart. You orchestrate the
-  whole analysis yourself — discover series, query SQL, compute, build the
-  chart spec, publish a share link.
+  wages, markets, or wants a shareable economic chart or a full multi-section
+  research report. You orchestrate the whole analysis yourself — discover
+  series, query SQL, compute, then publish either a single chart or a
+  fully formed report as a share link.
 allowed-tools: Bash(python3:*), Bash(python:*), Read, Write
 ---
 
 # FactIQ Data Tools
 
 You are the analyst. FactIQ provides authenticated HTTP data tools (catalog
-search, read-only SQL, series lookup, market data, earnings search) and a
-chart-publishing endpoint. There is no server-side agent in this loop: you
+search, read-only SQL, series lookup, market data, earnings search) and two
+publishing endpoints — a single shareable chart, or a fully formed
+multi-section report. There is no server-side agent in this loop: you
 decompose the question, find the data, do the math with your own tokens, and
-build the chart.
+author the output.
+
+Two output modes:
+
+- **Quick chart** (`share-chart`) — one focused chart. Default for questions
+  about a single metric or comparison.
+- **Detailed report** (`share-report`) — summary + sections of narrative and
+  charts + methodology, rendered on FactIQ's share-report page exactly like
+  the in-house agent's reports. For broad or analytical questions. See
+  **Detailed reports** below.
 
 All access goes through the bundled CLI — no codebase or database access is
 needed:
@@ -72,6 +83,7 @@ in the environment first, then `api_key` in `~/.factiq/config.json`.
 | `market FUNCTION [--symbol AAPL] [--interval] [--outputsize full]` | Quotes, daily/weekly/monthly series, fundamentals (OVERVIEW, INCOME_STATEMENT, EARNINGS), FX, commodities (WTI, BRENT, GOLD), SYMBOL_SEARCH. |
 | `earnings "QUERY" [--target sections\|themes\|qa_exchanges] [--companies AAPL,MSFT] [--quarter 2025Q4]` | Full-text search over earnings-call intelligence. |
 | `share-chart --spec chart.json [--question "..."]` | Publish a ChartSpec, returns `{shareUrl}`. |
+| `share-report --report report.json [--question "..."] [--model "..."]` | Publish a multi-section report as a public shared run, returns `{shareUrl, ...}`. |
 
 ## Orchestration workflow
 
@@ -98,9 +110,41 @@ in the environment first, then `api_key` in `~/.factiq/config.json`.
    for a server-side code interpreter; there is none in this loop.
 5. **Recent market data.** The DB lags for very recent market/price data —
    use `market` for current quotes, commodities, and FX.
-6. **Build the chart.** Write a ChartSpec JSON (see
+6. **Publish.** Quick-chart mode: write a ChartSpec JSON (see
    `references/chart-spec.md`) with wide-format data rows, then
-   `share-chart --spec chart.json`. Return the `shareUrl` to the user.
+   `share-chart --spec chart.json`. Report mode: write a report JSON (see
+   `references/report-spec.md` and **Detailed reports** below), then
+   `share-report --report report.json`. Either way, return the `shareUrl`
+   to the user.
+
+## Detailed reports
+
+A report is a public, fully rendered FactIQ research page: a bulleted
+summary up top, then sections that pair narrative with charts, then
+methodology notes. You author the whole thing — every chart's data rows,
+every narrative claim — from data you actually fetched in this session.
+The JSON format, per-chart fields, and a worked example live in
+`references/report-spec.md`. Read that file before writing the report.
+
+Ground rules:
+
+- **2–5 sections, 1–2 charts each** is the sweet spot (server caps: 12
+  sections, 16 charts). Each section should make one claim its charts prove.
+- **Chart titles state the finding** ("Health care added 652k jobs in 2024 —
+  triple tech's losses"), not the topic ("Jobs by sector").
+- **Narratives are plain text** — markdown is not rendered on the report
+  page, so `**bold**` shows up as literal asterisks.
+- **Cite sources and lineage.** Every chart should carry `sources` (the
+  datasets behind it) and `lineage` (the SQL/computation steps you actually
+  ran). Charts without lineage get a generic "uploaded data" stub — fine,
+  but real lineage makes the "How we built this" panel meaningful.
+- **Don't pad.** If the data only supports one chart, publish a quick chart
+  instead of inflating a report.
+
+`share-report` validates locally, POSTs to `/tools/report`, and prints the
+server response plus a `shareUrl` composed from your configured web origin.
+The report appears in your FactIQ history and can be forked by anyone who
+opens the share link.
 
 ## Context budget — sampled previews and `--out`
 
@@ -142,6 +186,10 @@ series list to fetch the rest.
   (`series_id`, `dataset_code`) instead of scanning titles across the table,
   and never pattern-match `series_id` on `data_points` — resolve ids from
   `series` first (see the pitfall in `references/sql-guide.md`).
+- **share-report 422** — the server re-validates the report against its real
+  chart schemas and names the failing field paths (e.g.
+  `sections[1].charts[0].x_column`). Fix the named fields in the JSON and
+  re-run; nothing was published.
 
 ## References
 
@@ -149,5 +197,8 @@ series list to fetch the rest.
   (frequency literals, national vs sub-national, pivots, tabular data).
 - `references/chart-spec.md` — ChartSpec format, chart-type selection, a
   worked share-chart example.
+- `references/report-spec.md` — report JSON format for `share-report`:
+  sections, per-chart fields, sources/lineage authoring, limits, a worked
+  example.
 - `references/schemas.md` — what lives in each schema. The `context`
   subcommand is the live, authoritative version.

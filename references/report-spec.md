@@ -1,0 +1,222 @@
+# Report JSON and share-report
+
+`share-report --report report.json` POSTs the report to `POST /tools/report`
+(API-key auth) and returns the server response plus a `shareUrl`. The server
+stores it as a completed, publicly shared FactIQ run, so the link renders on
+the standard share-report page: bulleted summary, sections of narrative +
+charts, per-chart Data Source line and "How we built this" lineage panel,
+methodology notes. The run also appears in your FactIQ history, and anyone
+opening the link can fork it into their own account.
+
+The CLI accepts either a bare report (`{summary, sections, ...}`, pass
+`--question` on the command line) or a full request envelope:
+
+```json
+{
+  "question": "How has US unemployment evolved since 2022?",
+  "model": "claude-sonnet-4-6 (factiq-skill)",
+  "report": { ... }
+}
+```
+
+`model` is a free-text label for who authored the report — pass your own
+model name.
+
+## Report structure
+
+```json
+{
+  "summary": "2–4 crisp sentences. Each sentence renders as its own summary bullet.",
+  "sections": [
+    {
+      "heading": "Section title",
+      "narrative": "Plain-text paragraph(s) shown beside the section's charts.",
+      "charts": [ { ...chart... } ]
+    }
+  ],
+  "methodology_notes": "Optional caveats: adjustments, survey vintages, definitions."
+}
+```
+
+- `summary` — required, ≤5,000 chars. Rendered as bullets, one per sentence.
+- `sections` — 1–12 (2–5 is the sweet spot). Each needs a `heading`;
+  `narrative` and `charts` are optional per section, but the report as a
+  whole needs **at least one chart** and at most **16 charts total**.
+- `narrative` — **plain text, no markdown**: the report page renders it
+  verbatim, so `**bold**` shows literal asterisks. ≤30,000 chars.
+
+## Charts
+
+`chart_type`: `line | bar | table | bubble | small_multiples | stacked_area
+| map | heatmap`. **Stick to `line`, `bar`, and `table`** — they take the
+simple tabular format below. The other types pass through with the in-house
+agent's full hydrated config structure, which is not documented here.
+
+Tabular chart fields:
+
+| Field | Required | Notes |
+|---|---|---|
+| `chart_type` | yes | `line`, `bar`, or `table` |
+| `title` | yes | The finding, with numbers — same rules as ChartSpec titles |
+| `columns` | yes | Column names, ≤40 |
+| `data` | yes | Rows, ≤1,200: arrays matching `columns` **or** objects keyed by column name |
+| `x_column` | line/bar | One of `columns` (tables default to the first column) |
+| `y_columns` | line/bar | Subset of `columns` (tables default to the rest) |
+| `units` | no | Y-axis label, e.g. `"Percent"` |
+| `subtitle` | no | E.g. `"Seasonally adjusted, monthly"` |
+| `annotations` | no | `[{"date": "<x value>", "text": "..."}]`, used sparingly |
+| `sources` | recommended | See below |
+| `lineage` | recommended | See below |
+| `generation_methodology` | no | One sentence on how the data was assembled |
+
+For time series, `x_column` values should be ISO date strings sorted
+ascending — some endpoints return reverse-chronological rows, which would
+render a backwards x-axis. Use `null` for gaps; don't drop rows. More than
+~300 points per line renders slowly — thin to monthly/quarterly first.
+
+### Sources
+
+```json
+"sources": [
+  {
+    "name": "Bureau of Labor Statistics",
+    "program": "Current Population Survey",
+    "type": "database",
+    "urls": ["/series/bls::LNS14000000"],
+    "titles": ["Unemployment Rate (LNS14000000)"]
+  }
+]
+```
+
+`name` is required; `type` is `database | web | derived` (default
+`database`). For `database` sources, `urls` are site-relative series links
+(`/series/{schema}::{series_id}`) with matching `titles`. Use `derived` for
+metrics you computed (YoY, indexed, ratios) and `web` for web research.
+
+### Lineage
+
+Same DAG format as ChartSpec lineage (see `references/chart-spec.md` —
+nodes with `id`, `type`, `title`, `summary`, `detail`, `inputs`, optional
+`code`/`code_language`/`series_refs`, exactly one `output` node referenced
+by `root_id`). Record the SQL and computations you actually ran. A chart
+uploaded without `lineage` gets a one-node "uploaded chart data" stub, so
+the panel still renders — but says nothing useful.
+
+## Validation and limits
+
+The CLI pre-checks the basics; the server then validates against the real
+chart schemas and 422s with the failing field paths (e.g.
+`sections[1].charts[0].x_column: Field required`). Fix and re-run — nothing
+is published on a 422. Server caps: 12 sections, 16 charts, 1,200 rows and
+40 columns per chart, 30k chars per narrative, 5k for the summary.
+
+## Worked example
+
+```json
+{
+  "question": "How has US unemployment evolved since 2022?",
+  "model": "claude-sonnet-4-6 (factiq-skill)",
+  "report": {
+    "summary": "US unemployment climbed from a 54-year low of 3.4% in April 2023 to 4.2% by late 2024, but the rise reflects labor-force re-entry rather than layoffs. Job openings cooled without a spike in claims.",
+    "sections": [
+      {
+        "heading": "The headline rate bottomed in 2023",
+        "narrative": "The unemployment rate's drift upward from mid-2023 came alongside rising participation, which is why economists read it as normalization rather than deterioration.",
+        "charts": [
+          {
+            "chart_type": "line",
+            "title": "US unemployment rose from 3.4% (Apr 2023) to 4.2% (Nov 2024)",
+            "subtitle": "Seasonally adjusted, monthly",
+            "x_column": "date",
+            "y_columns": ["unemployment_rate"],
+            "columns": ["date", "unemployment_rate"],
+            "units": "Percent",
+            "data": [
+              ["2022-01-01", 4.0],
+              ["2023-04-01", 3.4],
+              ["2024-11-01", 4.2]
+            ],
+            "annotations": [{ "date": "2023-04-01", "text": "54-year low of 3.4%" }],
+            "sources": [
+              {
+                "name": "Bureau of Labor Statistics",
+                "program": "Current Population Survey",
+                "type": "database",
+                "urls": ["/series/bls::LNS14000000"],
+                "titles": ["Unemployment Rate (LNS14000000)"]
+              }
+            ],
+            "generation_methodology": "Headline U-3 rate, seasonally adjusted.",
+            "lineage": {
+              "root_id": "output",
+              "nodes": [
+                {
+                  "id": "sql_1",
+                  "type": "sql",
+                  "title": "Query unemployment series",
+                  "summary": "Pulled the monthly U-3 unemployment rate from the BLS schema.",
+                  "detail": "",
+                  "inputs": [],
+                  "code": "SELECT date, value FROM data_points WHERE series_id = 'LNS14000000' ORDER BY date",
+                  "code_language": "sql",
+                  "series_refs": [
+                    { "schema_name": "bls", "series_id": "LNS14000000", "title": "Unemployment Rate" }
+                  ]
+                },
+                {
+                  "id": "output",
+                  "type": "output",
+                  "title": "Plot headline rate",
+                  "summary": "Single line with the April 2023 low annotated.",
+                  "detail": "",
+                  "inputs": ["sql_1"]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "heading": "Sector contributions",
+        "narrative": "Health care and government did the heavy lifting on payrolls through 2024 while tech shed jobs.",
+        "charts": [
+          {
+            "chart_type": "bar",
+            "title": "Health care added 652k jobs in 2024 — triple tech's losses",
+            "x_column": "sector",
+            "y_columns": ["jobs_added_thousands"],
+            "columns": ["sector", "jobs_added_thousands"],
+            "units": "Thousands of jobs",
+            "data": [
+              { "sector": "Health care", "jobs_added_thousands": 652 },
+              { "sector": "Information (tech)", "jobs_added_thousands": -98 }
+            ],
+            "sources": [
+              {
+                "name": "Bureau of Labor Statistics",
+                "program": "Current Employment Statistics (CES)",
+                "type": "database"
+              }
+            ],
+            "generation_methodology": "Year-over-year change in payroll employment by supersector."
+          }
+        ]
+      }
+    ],
+    "methodology_notes": "All figures seasonally adjusted. Sector payrolls from the establishment survey; the headline rate from the household survey — the two can diverge month to month."
+  }
+}
+```
+
+## Workflow
+
+1. Do the full data work first (context → discover → fetch `--full --out` →
+   compute locally). Every number in the report must come from data you
+   fetched this session.
+2. Outline: 2–5 section claims, one or two charts each that prove the claim.
+3. Write a local Python script that reads the `--out` files and emits
+   `report.json` — don't hand-type data rows.
+4. `python3 scripts/factiq.py share-report --report report.json`
+   (add `--question "..."` if the file is a bare report, and `--model` with
+   your model name).
+5. Return the `shareUrl` and the report's key findings.

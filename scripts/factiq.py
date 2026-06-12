@@ -393,6 +393,91 @@ def cmd_share_chart(args: argparse.Namespace) -> None:
     print(json.dumps(response, indent=2))
 
 
+REPORT_CHART_TYPES = {
+    "line",
+    "bar",
+    "table",
+    "bubble",
+    "small_multiples",
+    "stacked_area",
+    "map",
+    "heatmap",
+}
+REPORT_TABULAR_TYPES = {"line", "bar", "table"}
+
+
+def cmd_share_report(args: argparse.Namespace) -> None:
+    """Publish a multi-section report via POST /tools/report.
+
+    Validation here is a fast local pre-flight only — the server re-validates
+    everything against the real chart schemas and returns a 422 naming the
+    failing field paths.
+    """
+    try:
+        with open(args.report) as f:
+            payload = json.load(f)
+    except OSError as exc:
+        fail(f"Cannot read report {args.report}: {exc}")
+    except json.JSONDecodeError as exc:
+        fail(f"Report {args.report} is not valid JSON: {exc}")
+
+    # Accept either a bare report {summary, sections, ...} or a full
+    # {question, report, model} request payload.
+    body = payload if "report" in payload else {"report": payload}
+    if args.question:
+        body["question"] = args.question
+    if args.model:
+        body["model"] = args.model
+    body.setdefault("model", "factiq-skill")
+    if not str(body.get("question", "")).strip():
+        fail("Provide --question (or a top-level 'question' in the report file).")
+
+    report = body["report"]
+    if not str(report.get("summary", "")).strip():
+        fail("Report needs a non-empty 'summary'.")
+    sections = report.get("sections")
+    if not isinstance(sections, list) or not sections:
+        fail("Report needs a non-empty 'sections' list.")
+
+    chart_count = 0
+    for i, section in enumerate(sections):
+        if not str(section.get("heading", "")).strip():
+            fail(f"sections[{i}] needs a 'heading'.")
+        for j, chart in enumerate(section.get("charts") or []):
+            chart_count += 1
+            where = f"sections[{i}].charts[{j}]"
+            if chart.get("chart_type") not in REPORT_CHART_TYPES:
+                fail(f"{where}: chart_type must be one of {sorted(REPORT_CHART_TYPES)}")
+            if not str(chart.get("title", "")).strip():
+                fail(f"{where}: 'title' is required and should state the finding")
+            if chart.get("chart_type") in REPORT_TABULAR_TYPES and not (
+                chart.get("columns") and chart.get("data")
+            ):
+                fail(f"{where}: line/bar/table charts need 'columns' and 'data'")
+            if not chart.get("sources"):
+                print(
+                    f"warning: {where} has no 'sources' — the report will show no "
+                    "Data Source citation (see references/report-spec.md)",
+                    file=sys.stderr,
+                )
+            if not chart.get("lineage"):
+                print(
+                    f"warning: {where} has no 'lineage' — its 'How we built this' "
+                    "panel will be a generic stub (see references/report-spec.md)",
+                    file=sys.stderr,
+                )
+    if chart_count == 0:
+        fail("Report needs at least one chart across its sections.")
+
+    response = api_request(args, "POST", "/tools/report", body)
+    # Compose the share URL from the CLI's own web origin so FACTIQ_WEB_URL /
+    # --web-url overrides (e.g. localhost) carry through.
+    config = load_config()
+    share_path = response.get("share_path") or f"/share/{response.get('share_id')}"
+    response["shareUrl"] = web_url(args, config) + share_path
+    print(json.dumps(response, indent=2))
+
+
 # ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
@@ -523,6 +608,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--spec", required=True, help="Path to chart spec JSON")
     p.add_argument("--question", help="Question shown with the shared chart")
     p.set_defaults(func=cmd_share_chart)
+
+    p = sub.add_parser(
+        "share-report",
+        help="Publish a multi-section report, get a share URL",
+        parents=[shared],
+    )
+    p.add_argument(
+        "--report",
+        required=True,
+        help="Path to report JSON (see references/report-spec.md)",
+    )
+    p.add_argument(
+        "--question", help="The question the report answers (overrides the file)"
+    )
+    p.add_argument("--model", help="Label for the model that authored the report")
+    p.set_defaults(func=cmd_share_report)
 
     return parser
 
