@@ -55,9 +55,10 @@ in the environment first, then `api_key` in `~/.factiq/config.json`.
    through the same steps.
 
 2. The API defaults to `https://api.worlddb.ai` and the web origin (for share
-   links) to `https://factiq.com`. For local development override with
+   links) to `https://www.factiq.com`. For local development override with
    `FACTIQ_API_URL=http://localhost:8000` and
-   `FACTIQ_WEB_URL=http://localhost:3000` (or `--base-url` / `--web-url`).
+   `FACTIQ_WEB_URL=http://localhost:3000` (or `--base-url` / `--web-url`,
+   which work before or after the subcommand).
 
 ## Subcommands
 
@@ -74,7 +75,10 @@ in the environment first, then `api_key` in `~/.factiq/config.json`.
 ## Orchestration workflow
 
 1. **Context first.** Run `context` (optionally `--schemas` once you know
-   which are relevant) to get dataset descriptions and the table DDL.
+   which are relevant) to get dataset descriptions and the table DDL. If the
+   unfiltered call times out, retry with `--schemas` — the full schema list
+   is included either way. Schemas listed under `schemas_without_data` have
+   no rows loaded; skip them.
 2. **Discover broadly.** Survey every schema that could be relevant before
    deep-diving into one — for India check both `mospi` and `rbi`; for the US
    check `bls`, `bea`, `census`; energy means `eia`. Use `search` for
@@ -117,9 +121,12 @@ series list to fetch the rest.
 - **401** — the API key is missing or was regenerated elsewhere. Point the
   user at https://factiq.com/settings/security to regenerate, then re-run
   `set-key`.
-- **429 (exit 3)** — either the 1 request/second rate limit (just wait and
-  retry) or the monthly tool-call quota (50× the plan's question quota;
-  the error says when it resets). Don't burn calls re-fetching data you have.
+- **429 (exit 3)** — either the 1 request/second rate limit or the monthly
+  tool-call quota (50× the plan's question quota; the error says when it
+  resets). The CLI absorbs transient rate-limit 429s itself (up to two
+  retries with backoff), so multiple calls in one turn are safe; an exit-3
+  failure that survives the retries means quota exhaustion or sustained
+  limiting. Don't burn calls re-fetching data you have.
 - **403** — schema is admin-restricted for this account; drop it.
 - **SQL errors come back as HTTP 200** with an `{"error": "..."}` body
   (syntax errors, timeouts, bad column names) — the CLI exits 0, so check

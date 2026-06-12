@@ -7,7 +7,7 @@ talks to the FactIQ backend over HTTP and prints JSON to stdout.
 Config lives at ~/.factiq/config.json. Resolution order for the API base URL:
 --base-url flag > FACTIQ_API_URL env > config > https://api.worlddb.ai.
 The web origin (for share-chart) resolves the same way via --web-url /
-FACTIQ_WEB_URL / config / https://factiq.com.
+FACTIQ_WEB_URL / config / https://www.factiq.com.
 
 Auth is API-key based: FACTIQ_API_KEY env > config api_key. Generate your key
 at https://factiq.com/settings/security (shown only once) and store it with
@@ -21,14 +21,20 @@ import json
 import os
 import stat
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
 DEFAULT_API_URL = "https://api.worlddb.ai"
-DEFAULT_WEB_URL = "https://factiq.com"
+# The apex domain 307-redirects /api/* to www; target www directly.
+DEFAULT_WEB_URL = "https://www.factiq.com"
 CONFIG_PATH = os.path.expanduser("~/.factiq/config.json")
 DEFAULT_TIMEOUT = 120
+MAX_REDIRECTS = 3
+# The server enforces a fixed 1 req/s limit; transient 429s are retried
+# with these sleeps before giving up (quota-exhausted 429s are not retried).
+RATE_LIMIT_BACKOFF_SECONDS = (1.5, 3.0)
 
 
 def load_config() -> dict:
@@ -77,6 +83,8 @@ def http_json(
     body: dict | None = None,
     token: str | None = None,
     timeout: int = DEFAULT_TIMEOUT,
+    timeout_hint: str | None = None,
+    _redirects: int = 0,
 ) -> tuple[int, dict]:
     """One HTTP round-trip. Returns (status, parsed JSON body)."""
     data = json.dumps(body).encode() if body is not None else None
@@ -90,6 +98,20 @@ def http_json(
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status, json.loads(resp.read().decode() or "{}")
     except urllib.error.HTTPError as exc:
+        # urllib refuses to redirect a request that carries a body, so POST
+        # redirects (e.g. apex factiq.com -> www) surface here; re-issue at
+        # the new location with the method and body intact.
+        location = exc.headers.get("Location")
+        if exc.code in (301, 302, 307, 308) and location and _redirects < MAX_REDIRECTS:
+            return http_json(
+                method,
+                urllib.parse.urljoin(url, location),
+                body,
+                token,
+                timeout,
+                timeout_hint,
+                _redirects + 1,
+            )
         try:
             payload = json.loads(exc.read().decode() or "{}")
         except json.JSONDecodeError:
@@ -98,7 +120,10 @@ def http_json(
     except urllib.error.URLError as exc:
         fail(f"Cannot reach {url}: {exc.reason}")
     except TimeoutError:
-        fail(f"Request to {url} timed out after {timeout}s")
+        message = f"Request to {url} timed out after {timeout}s"
+        if timeout_hint:
+            message += f". {timeout_hint}"
+        fail(message)
 
 
 def resolve_api_key(config: dict) -> str | None:
@@ -111,6 +136,7 @@ def api_request(
     path: str,
     body: dict | None = None,
     params: dict | None = None,
+    timeout_hint: str | None = None,
 ) -> dict:
     """API-key-authenticated request (FACTIQ_API_KEY env > config api_key)."""
     config = load_config()
@@ -130,7 +156,15 @@ def api_request(
             url += "?" + urllib.parse.urlencode(clean)
 
     timeout = getattr(args, "timeout", DEFAULT_TIMEOUT)
-    status, payload = http_json(method, url, body, api_key, timeout)
+    for attempt in range(len(RATE_LIMIT_BACKOFF_SECONDS) + 1):
+        status, payload = http_json(method, url, body, api_key, timeout, timeout_hint)
+        if status != 429:
+            break
+        detail = str(payload.get("detail", payload))
+        # Quota exhaustion is also a 429 but won't clear in seconds.
+        if "quota" in detail.lower() or attempt >= len(RATE_LIMIT_BACKOFF_SECONDS):
+            break
+        time.sleep(RATE_LIMIT_BACKOFF_SECONDS[attempt])
 
     if status == 401:
         fail(
@@ -191,8 +225,9 @@ def cmd_set_key(args: argparse.Namespace) -> None:
     config.update(base_url=api, api_key=api_key)
     if user.get("email"):
         config["email"] = user["email"]
-    if args.web_url:
-        config["web_url"] = args.web_url.rstrip("/")
+    web_override = getattr(args, "web_url", None)
+    if web_override:
+        config["web_url"] = web_override.rstrip("/")
     save_config(config)
     print(
         json.dumps(
@@ -212,7 +247,17 @@ def cmd_whoami(args: argparse.Namespace) -> None:
 
 def cmd_context(args: argparse.Namespace) -> None:
     emit(
-        api_request(args, "GET", "/tools/context", params={"schemas": args.schemas}),
+        api_request(
+            args,
+            "GET",
+            "/tools/context",
+            params={"schemas": args.schemas},
+            timeout_hint=(
+                "Retry with --schemas to narrow the response "
+                "(e.g. --schemas bls,bea,census); the full schema list is "
+                "included either way."
+            ),
+        ),
         args,
     )
 
@@ -291,8 +336,13 @@ def cmd_earnings(args: argparse.Namespace) -> None:
 
 
 def cmd_share_chart(args: argparse.Namespace) -> None:
-    with open(args.spec) as f:
-        payload = json.load(f)
+    try:
+        with open(args.spec) as f:
+            payload = json.load(f)
+    except OSError as exc:
+        fail(f"Cannot read chart spec {args.spec}: {exc}")
+    except json.JSONDecodeError as exc:
+        fail(f"Chart spec {args.spec} is not valid JSON: {exc}")
 
     # Accept either a bare ChartSpec or a full {chart, chartData, ...} payload.
     body = payload if "chart" in payload else {"chart": payload}
@@ -328,29 +378,51 @@ def cmd_share_chart(args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="factiq.py", description="FactIQ tools API client"
+    # Shared flags accepted both before and after the subcommand. SUPPRESS
+    # keeps a subparser from clobbering a value parsed by the main parser;
+    # all reads go through getattr with a default.
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument(
+        "--base-url", default=argparse.SUPPRESS, help="API base URL override"
     )
-    parser.add_argument("--base-url", help="API base URL override")
-    parser.add_argument("--web-url", help="Web origin override (share-chart)")
-    parser.add_argument(
-        "--timeout", type=int, default=DEFAULT_TIMEOUT, help="HTTP timeout seconds"
+    shared.add_argument(
+        "--web-url",
+        default=argparse.SUPPRESS,
+        help="Web origin override (share-chart)",
+    )
+    shared.add_argument(
+        "--timeout",
+        type=int,
+        default=argparse.SUPPRESS,
+        help=f"HTTP timeout seconds (default {DEFAULT_TIMEOUT})",
+    )
+
+    parser = argparse.ArgumentParser(
+        prog="factiq.py", description="FactIQ tools API client", parents=[shared]
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("set-key", help="Store your fiq_ API key (verifies it first)")
+    p = sub.add_parser(
+        "set-key",
+        help="Store your fiq_ API key (verifies it first)",
+        parents=[shared],
+    )
     p.add_argument("--key", help="The API key (prompted securely if omitted)")
     p.set_defaults(func=cmd_set_key)
 
-    p = sub.add_parser("whoami", help="Show the authenticated user")
+    p = sub.add_parser("whoami", help="Show the authenticated user", parents=[shared])
     p.set_defaults(func=cmd_whoami)
 
-    p = sub.add_parser("context", help="Dataset catalog + table structure")
+    p = sub.add_parser(
+        "context", help="Dataset catalog + table structure", parents=[shared]
+    )
     p.add_argument("--schemas", help="Comma-separated schema filter, e.g. bls,bea")
     p.add_argument("--out", help="Write full JSON to file, print a stub")
     p.set_defaults(func=cmd_context)
 
-    p = sub.add_parser("search", help="Series catalog search by title terms")
+    p = sub.add_parser(
+        "search", help="Series catalog search by title terms", parents=[shared]
+    )
     p.add_argument(
         "--schema", action="append", required=True, help="Schema (repeatable)"
     )
@@ -365,7 +437,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out")
     p.set_defaults(func=cmd_search)
 
-    p = sub.add_parser("sql", help="Run read-only SQL against a schema")
+    p = sub.add_parser(
+        "sql", help="Run read-only SQL against a schema", parents=[shared]
+    )
     p.add_argument("--schema", required=True)
     p.add_argument("--query", help="SQL text")
     p.add_argument("--query-file", help="Read SQL from a file")
@@ -383,7 +457,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out")
     p.set_defaults(func=cmd_sql)
 
-    p = sub.add_parser("series", help="Fetch one series (incl. COMPOUND::)")
+    p = sub.add_parser(
+        "series", help="Fetch one series (incl. COMPOUND::)", parents=[shared]
+    )
     p.add_argument("schema")
     p.add_argument("series_id")
     p.add_argument("--from-year", type=int)
@@ -392,7 +468,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out")
     p.set_defaults(func=cmd_series)
 
-    p = sub.add_parser("market", help="Market data (quotes, fundamentals, commodities)")
+    p = sub.add_parser(
+        "market",
+        help="Market data (quotes, fundamentals, commodities)",
+        parents=[shared],
+    )
     p.add_argument("function", help="e.g. GLOBAL_QUOTE, TIME_SERIES_DAILY, WTI")
     p.add_argument("--symbol")
     p.add_argument("--interval")
@@ -401,7 +481,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out")
     p.set_defaults(func=cmd_market)
 
-    p = sub.add_parser("earnings", help="Search earnings call intelligence")
+    p = sub.add_parser(
+        "earnings", help="Search earnings call intelligence", parents=[shared]
+    )
     p.add_argument("query")
     p.add_argument(
         "--target",
@@ -414,7 +496,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out")
     p.set_defaults(func=cmd_earnings)
 
-    p = sub.add_parser("share-chart", help="Publish a ChartSpec, get a share URL")
+    p = sub.add_parser(
+        "share-chart", help="Publish a ChartSpec, get a share URL", parents=[shared]
+    )
     p.add_argument("--spec", required=True, help="Path to chart spec JSON")
     p.add_argument("--question", help="Question shown with the shared chart")
     p.set_defaults(func=cmd_share_chart)
