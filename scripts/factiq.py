@@ -82,6 +82,8 @@ def http_json(
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Content-Type", "application/json")
+    # Cloudflare blocks urllib's default python-urllib/x.y user-agent outright.
+    req.add_header("User-Agent", "factiq-cli/0.2 (+https://github.com/defog-ai/factiq-skill)")
     if token:
         req.add_header("Authorization", f"Bearer {token}")
     try:
