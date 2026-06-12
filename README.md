@@ -61,7 +61,7 @@ key is verified against the API and cached in `~/.factiq/config.json`
 
 ## Configuration
 
-The CLI targets `https://api.worlddb.ai` (API) and `https://factiq.com`
+The CLI targets `https://api.worlddb.ai` (API) and `https://www.factiq.com`
 (share links) by default. Override with `FACTIQ_API_URL` / `FACTIQ_WEB_URL`
 env vars or `--base-url` / `--web-url` flags — e.g. `http://localhost:8000`
 and `http://localhost:3000` for local development against the worlddb repos.
