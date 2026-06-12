@@ -102,6 +102,19 @@ by `root_id`). Record the SQL and computations you actually ran. A chart
 uploaded without `lineage` gets a one-node "uploaded chart data" stub, so
 the panel still renders — but says nothing useful.
 
+Two rules carry over from chart-spec lineage and are worth repeating
+because reports get them wrong most often:
+
+- `code` renders verbatim in a code block — write it as **formatted,
+  multi-line** SQL/Python with real newlines (`\n` in the JSON string),
+  never collapsed onto one line. For `code`-type nodes include the actual
+  script lines you ran, not a one-line paraphrase.
+- `series_refs` lists **every** series the step used (each id in the
+  query's `IN (...)` list or filter, with its real title), not a single
+  representative one. Each ref renders as a clickable series link. For
+  very large aggregates (40+ series), list the largest contributors and
+  state the full count in `summary`.
+
 ## Validation and limits
 
 The CLI pre-checks the basics; the server then validates against the real
@@ -157,7 +170,7 @@ is published on a 422. Server caps: 12 sections, 16 charts, 1,200 rows and
                   "summary": "Pulled the monthly U-3 unemployment rate from the BLS schema.",
                   "detail": "",
                   "inputs": [],
-                  "code": "SELECT date, value FROM data_points WHERE series_id = 'LNS14000000' ORDER BY date",
+                  "code": "SELECT date, value\nFROM data_points\nWHERE series_id = 'LNS14000000'\nORDER BY date",
                   "code_language": "sql",
                   "series_refs": [
                     { "schema_name": "bls", "series_id": "LNS14000000", "title": "Unemployment Rate" }
