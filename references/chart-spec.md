@@ -82,6 +82,53 @@ If the claim depends on a time window, keep the range in the title.
 - `subtitle`, `description`, `notes[]`, `footnote` — optional supporting
   text.
 
+## Data lineage (`lineage`)
+
+Always include a `lineage` DAG in the spec. The share page renders it as a
+"How we built this" panel; without it the chart shows only the one-line
+Data Source citation. It records the steps you actually took — searches,
+SQL, computations — ending in a single `output` node:
+
+```json
+"lineage": {
+  "root_id": "out",
+  "nodes": [
+    {
+      "id": "sql1", "type": "sql", "inputs": [],
+      "title": "BLS unemployment rate",
+      "summary": "Monthly LNS14000000 from bls.data_points, 2019–2025",
+      "detail": "SELECT date, value FROM data_points WHERE series_id = 'LNS14000000' ...",
+      "code": "SELECT date, value FROM data_points WHERE series_id = 'LNS14000000' ...",
+      "code_language": "sql",
+      "series_refs": [
+        { "schema_name": "bls", "series_id": "LNS14000000", "title": "Unemployment Rate" }
+      ]
+    },
+    {
+      "id": "calc", "type": "code", "inputs": ["sql1"],
+      "title": "Computed YoY change",
+      "summary": "12-month difference on the monthly rate",
+      "detail": "", "code": "yoy = rate - rate.shift(12)", "code_language": "python"
+    },
+    {
+      "id": "out", "type": "output", "inputs": ["calc"],
+      "title": "US unemployment rate, 2019–2025",
+      "summary": "Line chart of the monthly rate with YoY overlay",
+      "detail": ""
+    }
+  ]
+}
+```
+
+Node fields: `id`, `type` (`sql | series | code | web | market | output`),
+`title`, `summary`, `detail`, `inputs` (upstream node ids — `[]` for leaves).
+Optional per type: `code` + `code_language` (shown as a code block — put the
+exact SQL or Python you ran here), `series_refs[]`
+(`{schema_name, series_id, title}`, rendered as links to the series pages),
+`web_sources[]` (`{url, title}`) for `web` nodes, and `market_ticker` for
+`market` nodes. One node per real step; exactly one `output` node, referenced
+by `root_id`.
+
 ## Workflow
 
 1. Fetch full data to disk: `... sql --full --out /tmp/data.json` (or
@@ -91,6 +138,8 @@ If the claim depends on a time window, keep the range in the title.
    `chart.json`. Sort rows by the x value first — some endpoints return
    data reverse-chronological, which would render a backwards x-axis.
 3. Validate locally that every `series[].key` and `xField.key` exists in the
-   `data` rows.
+   `data` rows, and that the spec carries both `sources[]` and a `lineage`
+   DAG (see above) — they are what the share page shows as the Data Source
+   line and the "How we built this" panel.
 4. `python3 scripts/factiq.py share-chart --spec chart.json --question "..."`
 5. Return the `shareUrl`.

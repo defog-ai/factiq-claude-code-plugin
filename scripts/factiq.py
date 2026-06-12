@@ -367,6 +367,18 @@ def cmd_share_chart(args: argparse.Namespace) -> None:
     ]
     if missing:
         fail(f"Chart spec is missing required field(s): {', '.join(missing)}")
+    if not chart.get("sources"):
+        print(
+            "warning: chart spec has no 'sources' — the shared page will show no "
+            "Data Source citation (see references/chart-spec.md)",
+            file=sys.stderr,
+        )
+    if not chart.get("lineage"):
+        print(
+            "warning: chart spec has no 'lineage' — the shared page will show no "
+            "'How we built this' panel (see references/chart-spec.md)",
+            file=sys.stderr,
+        )
     if args.question:
         body["question"] = args.question
     body.setdefault("source", "factiq-skill")
