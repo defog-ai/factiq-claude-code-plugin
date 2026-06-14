@@ -12,7 +12,7 @@ FactIQ account.
 Inside Claude Code:
 
 ```
-/plugin marketplace add defog-ai/factiq-skill
+/plugin marketplace add defog-ai/factiq-claude-code-plugin
 /plugin install factiq@factiq
 ```
 
@@ -29,7 +29,7 @@ data questions) plus three slash commands:
 <summary>Alternative: install as a plain skill (no slash commands)</summary>
 
 ```bash
-git clone git@github.com:defog-ai/factiq-skill.git ~/.claude/skills/factiq
+git clone git@github.com:defog-ai/factiq-claude-code-plugin.git ~/.claude/skills/factiq
 ```
 
 The skill auto-invokes the same way; store your key with
