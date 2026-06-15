@@ -230,13 +230,38 @@ def emit(payload: dict, args: argparse.Namespace) -> None:
         with open(out, "w") as f:
             json.dump(payload, f, indent=2)
         stub = {"out": out}
-        for key in ("columns", "row_count", "total_row_count", "title", "schema_name"):
+        for key in (
+            "columns",
+            "row_count",
+            "total_row_count",
+            "title",
+            "schema_name",
+            "truncated",
+            "note",
+        ):
             if key in payload:
                 stub[key] = payload[key]
         rows = payload.get("results")
-        if isinstance(rows, list) and "row_count" not in stub:
-            stub["row_count"] = len(rows)
+        if isinstance(rows, list):
+            # Always surface how many rows actually landed in --out. When the
+            # server truncates, its row_count is the pre-truncation total, so
+            # an agent reading only the stub would otherwise have no signal
+            # that the written file holds a partial (and, with ORDER BY, a
+            # non-random) slice.
+            stub["written_rows"] = len(rows)
+            stub.setdefault("row_count", len(rows))
         print(json.dumps(stub, indent=2))
+        if payload.get("truncated"):
+            # Silent partial data is a correctness hazard, not an FYI — make
+            # it loud on stderr so it is hard to miss even when stdout is
+            # consumed programmatically.
+            written = len(rows) if isinstance(rows, list) else "?"
+            note = payload.get("note") or (
+                f"Result truncated: wrote {written} of "
+                f"{payload.get('row_count', '?')} rows to {out}. Narrow the "
+                "query or raise --max-rows to fetch the rest."
+            )
+            print(f"WARNING: {note}", file=sys.stderr)
     else:
         print(json.dumps(payload, indent=2, default=str))
 

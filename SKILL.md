@@ -161,10 +161,14 @@ python3 scripts/factiq.py sql --schema bls --query "..." --full --out /tmp/unemp
 ```
 
 `--out` writes the complete JSON to disk and prints only a stub
-(`{out, columns, row_count, ...}`). Then build the chart's `data` array from
-the file with a local Python script. SQL `--full` is capped at 5,000 rows
-server-side (`truncated: true` flags the cut) — narrow the date range or
-series list to fetch the rest.
+(`{out, columns, row_count, written_rows, ...}`). Then build the chart's
+`data` array from the file with a local Python script. SQL `--full` returns up
+to `--max-rows` rows (default **500**); raise it (e.g. `--max-rows 5000`) to
+fetch more. When the result is cut, the response sets `truncated: true` plus a
+`note`, both of which the stub now echoes — and `written_rows` (rows actually
+on disk) will be below `row_count` (the server's pre-truncation total). If you
+see truncation, narrow the query (date range, fewer series), aggregate
+server-side, or raise `--max-rows`.
 
 ## Errors and limits
 
