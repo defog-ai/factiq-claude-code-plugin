@@ -359,7 +359,10 @@ def cmd_context(args: argparse.Namespace) -> None:
             args,
             "GET",
             "/tools/context",
-            params={"schemas": args.schemas},
+            params={
+                "schemas": args.schemas,
+                "full": "true" if args.full else None,
+            },
             timeout_hint=(
                 "Retry with --schemas to narrow the response "
                 "(e.g. --schemas bls,bea,census); the full schema list is "
@@ -368,6 +371,23 @@ def cmd_context(args: argparse.Namespace) -> None:
         ),
         args,
     )
+
+
+def cmd_search_datasets(args: argparse.Namespace) -> None:
+    body: dict = {"query": args.query, "limit": args.limit}
+    if args.schemas:
+        body["schemas"] = [s.strip() for s in args.schemas.split(",") if s.strip()]
+    emit(api_request(args, "POST", "/tools/search_datasets", body), args)
+
+
+def cmd_describe(args: argparse.Namespace) -> None:
+    path = (
+        "/tools/describe_dataset/"
+        + urllib.parse.quote(args.schema, safe="")
+        + "/"
+        + urllib.parse.quote(args.dataset_code, safe="")
+    )
+    emit(api_request(args, "GET", path), args)
 
 
 def cmd_search(args: argparse.Namespace) -> None:
@@ -670,11 +690,40 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_whoami)
 
     p = sub.add_parser(
-        "context", help="Dataset catalog + table structure", parents=[shared]
+        "context",
+        help="Schema index + table structure (lean; --full for per-dataset dump)",
+        parents=[shared],
     )
     p.add_argument("--schemas", help="Comma-separated schema filter, e.g. bls,bea")
+    p.add_argument(
+        "--full",
+        action="store_true",
+        help="Return the heavy per-dataset description dump (default is the "
+        "compact schema index — use search-datasets/describe for detail)",
+    )
     p.add_argument("--out", help="Write full JSON to file, print a stub")
     p.set_defaults(func=cmd_context)
+
+    p = sub.add_parser(
+        "search-datasets",
+        help="Find datasets by keyword across all schemas (start here)",
+        parents=[shared],
+    )
+    p.add_argument("--query", required=True, help="Free-text search terms")
+    p.add_argument("--schemas", help="Comma-separated schema filter, e.g. mospi,rbi")
+    p.add_argument("--limit", type=int, default=15)
+    p.add_argument("--out")
+    p.set_defaults(func=cmd_search_datasets)
+
+    p = sub.add_parser(
+        "describe",
+        help="Full metadata for one dataset (after search-datasets)",
+        parents=[shared],
+    )
+    p.add_argument("schema")
+    p.add_argument("dataset_code")
+    p.add_argument("--out")
+    p.set_defaults(func=cmd_describe)
 
     p = sub.add_parser(
         "search", help="Series catalog search by title terms", parents=[shared]

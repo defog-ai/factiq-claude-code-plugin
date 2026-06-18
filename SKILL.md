@@ -76,8 +76,10 @@ in the environment first, then `api_key` in `~/.factiq/config.json`.
 
 | Command | Purpose |
 |---|---|
-| `context [--schemas bls,bea]` | Dataset catalog, per-dataset descriptions, and the shared table DDL. **Call once per session before anything else.** |
-| `search --schema bls --terms "unemployment rate"` | Title-substring catalog search (repeat `--schema`/`--terms` pairs for several schemas in one call). Includes `COMPOUND::` series. |
+| `context [--schemas bls,bea] [--full]` | Lean per-schema index + the shared table DDL. **Call once per session before anything else.** `--full` returns the heavy per-dataset description dump (rarely needed — use `describe` instead). |
+| `search-datasets --query "rare earth imports" [--schemas mospi,rbi] [--limit N]` | Keyword (BM25, not semantic) ranking of datasets across all schemas. **The first discovery step** — find the right `schema`+`dataset_code`. |
+| `describe SCHEMA DATASET_CODE` | Full metadata for one dataset: topic, methodology, release dates, base-change notice, available dimensions, example series. Call after `search-datasets`. |
+| `search --schema bls --terms "unemployment rate"` | Series-level title-substring search within a schema (repeat `--schema`/`--terms` pairs). Includes `COMPOUND::` series. |
 | `sql --schema bls --query "..." [--explore] [--full] [--max-rows N] [--out f.json]` | Read-only SELECT against one schema. Default output is a sampled preview. |
 | `series SCHEMA SERIES_ID [--from-year Y] [--to-year Y] [--full] [--out f.json]` | Fetch one series — timeseries, tabular, or `COMPOUND::` ids all work. |
 | `market FUNCTION [--symbol AAPL] [--interval] [--outputsize full]` | Quotes, daily/weekly/monthly series, fundamentals (OVERVIEW, INCOME_STATEMENT, EARNINGS), FX, commodities (WTI, BRENT, GOLD), SYMBOL_SEARCH. |
@@ -87,21 +89,22 @@ in the environment first, then `api_key` in `~/.factiq/config.json`.
 
 ## Orchestration workflow
 
-1. **Context first.** Run `context` (optionally `--schemas` once you know
-   which are relevant) to get dataset descriptions and the table DDL. If the
-   unfiltered call times out, retry with `--schemas` — the full schema list
-   is included either way. Schemas listed under `schemas_without_data` have
-   no rows loaded; skip them.
-2. **Discover broadly.** Survey every schema that could be relevant before
-   deep-diving into one — for India check both `mospi` and `rbi`; for the US
-   check `bls`, `bea`, `census`; energy means `eia`. Use `search` for
-   obvious title matches and exploration SQL (`sql --explore`) for everything
-   else. `search` is substring matching, not semantic — prefer short stems
-   (`rare`, not `rare earth`: BLS titles its rare-earth import price index
-   "precious, rare-earth, or radioactive"), and use exploration SQL on
-   the `series` and `dimensions` tables as the primary discovery tool. For
-   multi-source stories, actually fetch data from 2+ schemas, don't just
-   survey them.
+1. **Context first.** Run `context` once to get the compact per-schema index
+   and the table DDL. This is lean by design — it tells you what each schema
+   covers, not every dataset. Schemas listed under `schemas_without_data` have
+   no rows loaded; skip them. (You rarely need `--full`; use `describe` for
+   detail on a specific dataset.)
+2. **Find datasets, then drill in.** Run `search-datasets --query "..."` to
+   rank datasets across all schemas by keyword — this is the primary discovery
+   step. Survey every schema that could be relevant before committing: for
+   India check both `mospi` and `rbi` (pass `--schemas mospi,rbi`); for the US
+   check `bls`, `bea`, `census`; energy means `eia`. Once a dataset looks
+   right, `describe SCHEMA DATASET_CODE` for its dimensions and example
+   series, then find the exact series with `search --schema ... --terms ...`
+   (series-level, substring — prefer short stems like `rare`, not `rare
+   earth`) or exploration SQL (`sql --explore`) on the `series` and
+   `dimensions` tables. For multi-source stories, actually fetch data from 2+
+   schemas, don't just survey them.
 3. **Fetch in batches.** Once you know which series you need, issue all
    fetch calls together (multiple Bash calls in one turn). Use `series` for
    1–2 known ids; `sql` with a CASE-WHEN pivot for 3+ series or joins.
@@ -208,4 +211,5 @@ server-side, or raise `--max-rows`.
   sections, per-chart fields, sources/lineage authoring, limits, a worked
   example.
 - `references/schemas.md` — what lives in each schema. The `context`
-  subcommand is the live, authoritative version.
+  subcommand is the live, authoritative version; `search-datasets` /
+  `describe` drill into individual datasets on demand.
