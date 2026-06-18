@@ -1,7 +1,7 @@
 {
   "name": "factiq",
   "description": "Answer economic and financial data questions with real data from FactIQ — and publish shareable charts and reports.",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "author": {
     "name": "Defog"
   }
