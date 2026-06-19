@@ -3,9 +3,9 @@
 A [Claude Code plugin](https://code.claude.com/docs/en/plugins) that lets
 Claude answer economic and financial data questions using FactIQ's data tools
 over HTTP — catalog search, read-only SQL, series lookup, market data,
-earnings-call search, and shareable chart publishing. Claude orchestrates the
-whole analysis itself; no codebase or database access is required, only a
-FactIQ account.
+earnings-call search, shareable chart/report publishing, and bespoke local
+HTML visualizations. Claude orchestrates the whole analysis itself; no codebase
+or database access is required, only a FactIQ account.
 
 ## Install
 
@@ -56,7 +56,13 @@ key is verified against the API and cached in `~/.factiq/config.json`
 - `commands/` — the `/factiq:*` slash commands
 - `scripts/factiq.py` — self-contained stdlib-only CLI for the FactIQ
   `/tools/*` API (Python 3.10+, no dependencies)
-- `references/` — SQL idioms, ChartSpec format, and dataset schema overview
+- `scripts/build_viz.py` — local-only tool to assemble fetched data into a
+  self-contained HTML viz and screenshot it headless for iteration. `assemble`
+  is stdlib-only; `render` installs Playwright + Chromium into
+  `~/.factiq/viz-venv` on first use (no effect on your system Python)
+- `assets/viz-shell.html` — starting-point shell for bespoke visualizations
+- `references/` — SQL idioms, ChartSpec/report formats, the bespoke-viz guide,
+  and dataset schema overview
 - `.claude-plugin/` — plugin + marketplace manifests
 
 ## Configuration
