@@ -175,7 +175,7 @@ The tool is `scripts/build_viz.py` (local-only — it never calls the API):
 
 | Command | Purpose |
 |---|---|
-| `assemble --template T.html --data k=f.json … --out O.html [--open]` | Inject on-disk JSON into your HTML at the `__FACTIQ_DATA__` marker; write one portable, self-contained file. Stdlib only. |
+| `assemble --template T.html --data k1=f1.json k2=f2.json … --out O.html [--open]` | Inject on-disk JSON into your HTML at the `__FACTIQ_DATA__` marker; write one portable, self-contained file. Stdlib only. List **all** key=path pairs after the one `--data` flag. |
 | `render O.html [--out P.png] [--width N] [--height N] [--full-page] [--selector CSS] [--wait MS]` | Screenshot the file in headless Chromium and report JS/console errors + failed asset loads. Installs Playwright + Chromium into `~/.factiq/viz-venv` on first run (uses `uv` if available, else a stdlib venv). |
 
 The loop that makes this work — **author → assemble → render → look → fix**:
@@ -183,9 +183,10 @@ The loop that makes this work — **author → assemble → render → look → 
 1. Fetch full data to disk as usual (`sql … --full --out /tmp/x.json`). Never
    paste data rows into the HTML.
 2. Copy `assets/viz-shell.html`, add any CDN library you need, and author the
-   viz. Keep the `__FACTIQ_DATA__` marker — that is where the data lands.
-   After assembly the page exposes a `DATA` global; rows are at
-   `DATA.<key>.results`.
+   viz. Keep the `__FACTIQ_DATA__` marker inside its
+   `<script id="factiq-data" type="application/json">` tag — that exact element
+   is where the data lands and how the page reads it back. After assembly the
+   page exposes a `DATA` global; rows are at `DATA.<key>.results`.
 3. `assemble` the self-contained file, then `render` it and **actually read
    the screenshot**. `render` exits **5** when the page logged a JS error or a
    failed request — that usually means a blank page; fix it before judging the

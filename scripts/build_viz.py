@@ -88,7 +88,12 @@ def cmd_assemble(args: argparse.Namespace) -> None:
 
     data: dict = {}
     counts: dict = {}
-    for pair in args.data or []:
+    # --data is action="append" over nargs="+", so args.data is a list of
+    # lists: both `--data a=x b=y` (one flag, many pairs) and `--data a=x
+    # --data b=y` (repeated flag) end up here. Flatten so neither form
+    # silently drops pairs.
+    pairs = [pair for group in (args.data or []) for pair in group]
+    for pair in pairs:
         if "=" not in pair:
             fail(f"--data expects key=path, got {pair!r}")
         key, path = pair.split("=", 1)
@@ -306,8 +311,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--data",
         nargs="+",
+        action="append",
         metavar="KEY=PATH",
-        help="One or more key=path pairs; each file's JSON lands at DATA.<key>",
+        help="One or more key=path pairs; each file's JSON lands at DATA.<key>. "
+        "Pass several after one flag (--data a=x b=y) or repeat the flag "
+        "(--data a=x --data b=y); both work.",
     )
     p.add_argument("--out", required=True, help="Output HTML path")
     p.add_argument("--open", action="store_true", help="Open the result in the browser")

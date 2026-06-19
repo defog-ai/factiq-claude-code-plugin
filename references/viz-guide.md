@@ -18,7 +18,7 @@ fine-grained control over a chart's look.
 
 | Command | Purpose |
 |---|---|
-| `assemble --template T --data k=f.json … --out O.html [--open]` | Inject on-disk JSON into your HTML at the `__FACTIQ_DATA__` marker; write one portable file. Stdlib only. |
+| `assemble --template T --data k1=f1.json k2=f2.json … --out O.html [--open]` | Inject on-disk JSON into your HTML at the `__FACTIQ_DATA__` marker; write one portable file. Stdlib only. Pass **all** key=path pairs after the single `--data` flag (or repeat the flag — both work). |
 | `render H.html [--out P.png] [--width] [--height] [--full-page] [--selector CSS] [--wait MS]` | Screenshot the file in headless Chromium and report JS/console errors + failed requests. Installs Playwright + Chromium into `~/.factiq/viz-venv` on first run. |
 
 `render` exits **5** when the page logged a JS error, an uncaught exception,
@@ -35,11 +35,18 @@ stderr," not "minor warning."
    (or write your own). Add any CDN `<script>` you need, then write the
    visualization. Keep the `__FACTIQ_DATA__` marker — that is where the data
    lands. Do **not** paste data rows into the HTML; that defeats the point.
-3. **Assemble** the self-contained file:
+3. **Assemble** the self-contained file. Bespoke vizzes usually combine
+   several series, so list every file after one `--data` flag:
    ```bash
    python3 scripts/build_viz.py assemble \
-     --template my_viz.html --data jobs=/tmp/jobs.json --out /tmp/out.html
+     --template my_viz.html \
+     --data jobs=/tmp/jobs.json gdp=/tmp/gdp.json vac=/tmp/vac.json \
+     --out /tmp/out.html
    ```
+   `--data` takes **all** the `key=path` pairs that follow it; don't repeat the
+   flag once per file expecting each to stick. (Repeating it does now work too,
+   but the single-flag form above is canonical.) Each file lands at its key, so
+   above you get `DATA.jobs`, `DATA.gdp`, and `DATA.vac`.
 4. **Render and look.** Screenshot it, then actually read the image:
    ```bash
    python3 scripts/build_viz.py render /tmp/out.html --out /tmp/out.png
@@ -49,11 +56,35 @@ stderr," not "minor warning."
    legibility checklist below and iterate: edit → assemble → render → look,
    until it is actually right. **One render pass is never enough** for bespoke
    work; budget at least two or three.
+
+   **Caveat for tall pages:** headless Chromium lazy-paints off-screen
+   canvases, so on a long page a `--full-page` shot can show every
+   below-the-fold ECharts/Canvas/WebGL chart as blank even though it renders
+   fine in a real browser. Don't conclude those charts are broken — verify a
+   suspect one with `render … --selector "#chart-id"`, which scrolls that
+   element into view before shooting it.
 5. **Deliver.** Tell the user the file path; offer `assemble … --open` (or
    `open /tmp/out.html`) to open it in their browser. The file is portable and
    needs only internet for its CDN libraries.
 
 ## The data contract
+
+The `__FACTIQ_DATA__` marker only works inside this exact element:
+
+```html
+<script id="factiq-data" type="application/json">
+__FACTIQ_DATA__
+</script>
+```
+
+`assemble` substitutes the marker wherever it sits, but the page reads the
+data back by `id`, so the marker **must** live inside a
+`<script id="factiq-data" type="application/json">` tag. If you author a
+template from scratch, reproduce that element verbatim. Drop the bare marker
+anywhere else — an HTML comment, a `<div>`, the wrong id — and
+`getElementById("factiq-data")` returns `null`, giving
+`Cannot read properties of null (reading 'textContent')` and a blank page.
+(Starting from `assets/viz-shell.html` gives you the element for free.)
 
 After `assemble`, the page exposes one global:
 
@@ -113,9 +144,15 @@ separate technique. Lay panels out with CSS grid/flex inside `#root`.
 - The title states the **finding with numbers**, not the topic — same bar as
   `share-chart` (see `chart-spec.md`). Carry a source line at the bottom.
 - Color: enough contrast on the dark background; a sane categorical palette;
-  not red/green-only for accessibility.
+  not red/green-only for accessibility. In ECharts the legend swatch takes its
+  color from `series.itemStyle.color`, not `series.lineStyle.color` — a line
+  with a custom `lineStyle.color` but no `itemStyle.color` gets a mismatched
+  default-palette legend dot. Set both (or just `color` on the series).
 - Nothing is blank or half-rendered — if it is, check stderr for a JS error
-  and raise `--wait` if an animation/CDN load needed more time.
+  and raise `--wait` if an animation/CDN load needed more time. But a blank
+  canvas chart *below the fold* in a `--full-page` shot is usually just
+  headless lazy-painting, not a real failure — re-check it with `--selector`
+  before debugging (see the render caveat above).
 - Multi-panel: panels align, share scales where comparison is intended, and
   each panel is individually readable at the chosen viewport size.
 
