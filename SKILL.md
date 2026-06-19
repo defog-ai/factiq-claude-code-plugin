@@ -7,10 +7,11 @@ description: >
   customs, India MOSPI/RBI/trade, Singapore, IMF, World Bank), stock quotes
   and fundamentals, commodities/forex, and earnings-call intelligence. Use
   when the user asks about unemployment, inflation, GDP, trade flows, energy,
-  wages, markets, or wants a shareable economic chart or a full multi-section
-  research report. You orchestrate the whole analysis yourself — discover
-  series, query SQL, compute, then publish either a single chart or a
-  fully formed report as a share link.
+  wages, markets, or wants a shareable economic chart, a full multi-section
+  research report, or a bespoke custom visualization or dashboard saved as a
+  local HTML file. You orchestrate the whole analysis yourself — discover
+  series, query SQL, compute, then publish a single chart or a fully formed
+  report as a share link, or build a custom local HTML visualization.
 allowed-tools: Bash(python3:*), Bash(python:*), Read, Write
 ---
 
@@ -23,14 +24,19 @@ multi-section report. There is no server-side agent in this loop: you
 decompose the question, find the data, do the math with your own tokens, and
 author the output.
 
-Two output modes:
+Three output modes:
 
-- **Quick chart** (`share-chart`) — one focused chart. Default for questions
-  about a single metric or comparison.
+- **Quick chart** (`share-chart`) — one focused chart published to FactIQ as a
+  share link. Default for questions about a single metric or comparison.
 - **Detailed report** (`share-report`) — summary + sections of narrative and
   charts + methodology, rendered on FactIQ's share-report page exactly like
   the in-house agent's reports. For broad or analytical questions. See
   **Detailed reports** below.
+- **Bespoke local viz** (`build_viz.py`) — a self-contained HTML file you
+  author freely and save locally, not published to FactIQ. Use when the answer
+  needs something the ChartSpec can't express: a custom layout, a multi-panel
+  dashboard, a force/flow/chord diagram, a novel encoding, or fine-grained
+  visual control. See **Bespoke local visualizations** below.
 
 All access goes through the bundled CLI — no codebase or database access is
 needed:
@@ -113,12 +119,14 @@ in the environment first, then `api_key` in `~/.factiq/config.json`.
    for a server-side code interpreter; there is none in this loop.
 5. **Recent market data.** The DB lags for very recent market/price data —
    use `market` for current quotes, commodities, and FX.
-6. **Publish.** Quick-chart mode: write a ChartSpec JSON (see
+6. **Publish or build.** Quick-chart mode: write a ChartSpec JSON (see
    `references/chart-spec.md`) with wide-format data rows, then
-   `share-chart --spec chart.json`. Report mode: write a report JSON (see
-   `references/report-spec.md` and **Detailed reports** below), then
-   `share-report --report report.json`. Either way, return the `shareUrl`
-   to the user.
+   `share-chart --spec chart.json`; return the `shareUrl`. Report mode: write
+   a report JSON (see `references/report-spec.md` and **Detailed reports**
+   below), then `share-report --report report.json`; return the `shareUrl`.
+   Bespoke-viz mode: author an HTML file, `build_viz.py assemble` the
+   on-disk data into it, `build_viz.py render` to screenshot and iterate, then
+   give the user the local file path (see **Bespoke local visualizations**).
 
 ## Detailed reports
 
@@ -151,6 +159,38 @@ Ground rules:
 server response plus a `shareUrl` composed from your configured web origin.
 The report appears in your FactIQ history and can be forked by anyone who
 opens the share link.
+
+## Bespoke local visualizations
+
+When the answer wants something the published ChartSpec can't express — a
+custom layout, a dashboard of several panels, a force/flow/chord diagram, an
+annotated narrative, a novel encoding, or just fine visual control — build it
+yourself as a self-contained local HTML file. There is no spec and no fixed
+chart-type list: you author the HTML/JS (ECharts, D3, Canvas, SVG, WebGL),
+inject the data you already fetched, then render and iterate. Read
+`references/viz-guide.md` before starting — it covers technique selection, the
+data contract, and the legibility checklist.
+
+The tool is `scripts/build_viz.py` (local-only — it never calls the API):
+
+| Command | Purpose |
+|---|---|
+| `assemble --template T.html --data k=f.json … --out O.html [--open]` | Inject on-disk JSON into your HTML at the `__FACTIQ_DATA__` marker; write one portable, self-contained file. Stdlib only. |
+| `render O.html [--out P.png] [--width N] [--height N] [--full-page] [--selector CSS] [--wait MS]` | Screenshot the file in headless Chromium and report JS/console errors + failed asset loads. Installs Playwright + Chromium into `~/.factiq/viz-venv` on first run (uses `uv` if available, else a stdlib venv). |
+
+The loop that makes this work — **author → assemble → render → look → fix**:
+
+1. Fetch full data to disk as usual (`sql … --full --out /tmp/x.json`). Never
+   paste data rows into the HTML.
+2. Copy `assets/viz-shell.html`, add any CDN library you need, and author the
+   viz. Keep the `__FACTIQ_DATA__` marker — that is where the data lands.
+   After assembly the page exposes a `DATA` global; rows are at
+   `DATA.<key>.results`.
+3. `assemble` the self-contained file, then `render` it and **actually read
+   the screenshot**. `render` exits **5** when the page logged a JS error or a
+   failed request — that usually means a blank page; fix it before judging the
+   visual. One render pass is never enough; budget two or three.
+4. Hand the user the local file path; offer `--open` to open it in a browser.
 
 ## Context budget — sampled previews and `--out`
 
@@ -210,6 +250,9 @@ server-side, or raise `--max-rows`.
 - `references/report-spec.md` — report JSON format for `share-report`:
   sections, per-chart fields, sources/lineage authoring, limits, a worked
   example.
+- `references/viz-guide.md` — bespoke local HTML visualizations with
+  `build_viz.py`: the assemble/render loop, the `DATA` contract, technique
+  selection (ECharts/D3/Canvas/WebGL), a legibility checklist, starter recipes.
 - `references/schemas.md` — what lives in each schema. The `context`
   subcommand is the live, authoritative version; `search-datasets` /
   `describe` drill into individual datasets on demand.

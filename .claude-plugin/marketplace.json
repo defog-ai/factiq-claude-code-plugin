@@ -7,7 +7,7 @@
     {
       "name": "factiq",
       "source": "./",
-      "description": "Answer economic and financial data questions with real data from FactIQ — and publish shareable charts and reports."
+      "description": "Answer economic and financial data questions with real data from FactIQ — publish shareable charts and reports, or build bespoke local HTML visualizations."
     }
   ]
 }
