@@ -1,0 +1,70 @@
+<!doctype html>
+<!--
+  FactIQ bespoke-viz shell. This is a starting point, not a framework — copy it,
+  then author whatever visualization the question calls for (ECharts, D3, Canvas,
+  SVG, WebGL). The only hard requirement is that the __FACTIQ_DATA__ marker below
+  survives, so build_viz.py can inject the data you fetched to disk.
+
+  After assembly a global `DATA` object is available, keyed by the names you pass
+  to `build_viz.py assemble --data <key>=<file.json>`. Each value is the full
+  factiq payload, so SQL/series rows live at DATA.<key>.results (columns at
+  DATA.<key>.columns). Load any library you need from a CDN in <head>.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FactIQ visualization</title>
+
+    <!-- Add CDN libraries here as needed, e.g.:
+         <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+         <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script> -->
+
+    <!-- Data, injected by build_viz.py. Leave this script tag in place. -->
+    <script id="factiq-data" type="application/json">
+__FACTIQ_DATA__
+    </script>
+
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b0c0e;
+        --fg: #e7e9ee;
+        --muted: #9aa0aa;
+        --line: #23262d;
+        --accent: #4f8cff;
+        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--font);
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.45;
+      }
+      #root { padding: 28px clamp(16px, 4vw, 48px); }
+      h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em; }
+      .sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+      .source { color: var(--muted); font-size: 12px; margin-top: 24px; border-top: 1px solid var(--line); padding-top: 12px; }
+    </style>
+  </head>
+
+  <body>
+    <div id="root">
+      <!-- Author the visualization here. Replace this placeholder. -->
+    </div>
+
+    <script>
+      // The single, library-agnostic entry point. `DATA` is whatever you
+      // injected; rows are typically at DATA.<key>.results.
+      const DATA = JSON.parse(
+        document.getElementById("factiq-data").textContent
+      );
+
+      // --- author your visualization below ---
+    </script>
+  </body>
+</html>
