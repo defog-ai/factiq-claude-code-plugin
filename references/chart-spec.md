@@ -1,8 +1,11 @@
 # ChartSpec and share-chart
 
-`share-chart --spec chart.json` POSTs the spec to FactIQ's web app and
-returns `{shareId, shareUrl}` — a live, rendered chart page. The CLI accepts
-either a bare ChartSpec or a `{chart: {...}, question: "..."}` envelope.
+`share-chart --spec chart.json` POSTs the spec to the FactIQ backend
+(API-key auth) and returns `{shareId, shareUrl}` — a live, rendered chart
+page. The chart is owned by your API key's user, so you can edit it in place
+and restore earlier versions from the UI on `/share-chart/<id>`. The CLI
+accepts either a bare ChartSpec or a `{chart: {...}, question: "..."}`
+envelope.
 
 ## Minimal valid spec
 

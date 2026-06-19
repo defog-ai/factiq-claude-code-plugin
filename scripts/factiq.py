@@ -551,14 +551,20 @@ def cmd_share_chart(args: argparse.Namespace) -> None:
         body["question"] = args.question
     body.setdefault("source", "factiq-skill")
 
+    # POST to the backend's editable, owner-tied store (DEF-1411/DEF-1412)
+    # instead of the legacy unauthenticated Vercel Blob route. api_request adds
+    # the API-key bearer token, so the chart is owned by the key's user and can
+    # be edited + version-restored from the UI on /share-chart/<id>. The backend
+    # sanitizes the payload (1200 rows / 40 cols / 400 chars) and enforces a
+    # ~2MB cap; it returns {shareId} only, so we build shareUrl from the web
+    # origin exactly as the frontend service does.
+    response = api_request(args, "POST", "/shared-charts", body)
+    share_id = response.get("shareId")
+    if not share_id:
+        fail(f"share-chart failed: no shareId in response: {response}")
     config = load_config()
-    target = web_url(args, config) + "/api/share-chart"
-    status, response = http_json(
-        "POST", target, body, timeout=getattr(args, "timeout", DEFAULT_TIMEOUT)
-    )
-    if status >= 400 or not response.get("shareUrl"):
-        fail(f"share-chart failed (HTTP {status}): {response}")
-    print(json.dumps(response, indent=2))
+    share_url = f"{web_url(args, config)}/share-chart/{share_id}"
+    print(json.dumps({"shareId": share_id, "shareUrl": share_url}, indent=2))
 
 
 REPORT_CHART_TYPES = {
