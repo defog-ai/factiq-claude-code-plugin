@@ -90,7 +90,7 @@ in the environment first, then `api_key` in `~/.factiq/config.json`.
 | `series SCHEMA SERIES_ID [--from-year Y] [--to-year Y] [--full] [--out f.json]` | Fetch one series — timeseries, tabular, or `COMPOUND::` ids all work. |
 | `market FUNCTION [--symbol AAPL] [--interval] [--outputsize full]` | Quotes, daily/weekly/monthly series, fundamentals (OVERVIEW, INCOME_STATEMENT, EARNINGS), FX, commodities (WTI, BRENT, GOLD), SYMBOL_SEARCH. |
 | `earnings "QUERY" [--target sections\|themes\|qa_exchanges] [--companies AAPL,MSFT] [--quarter 2025Q4]` | Full-text search over earnings-call intelligence. |
-| `share-chart --spec chart.json [--question "..."]` | Publish a ChartSpec, returns `{shareUrl}`. |
+| `share-chart --spec chart.json [--question "..."]` | Publish a ChartSpec (owned by your API key, editable from the UI), returns `{shareId, shareUrl}`. |
 | `share-report --report report.json [--question "..."] [--model "..."]` | Publish a multi-section report as a public shared run, returns `{shareUrl, ...}`. |
 
 ## Orchestration workflow
