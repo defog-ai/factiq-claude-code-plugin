@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""FactIQ tools client — a self-contained HTTP CLI for the FactIQ /tools API.
+"""FactIQ publishing client — auth + the publishing endpoints the MCP omits.
 
-Stdlib only (Python 3.10+). No codebase access required: every subcommand
-talks to the FactIQ backend over HTTP and prints JSON to stdout.
+The read-only data tools (catalog, search, SQL, series, market, earnings) now
+live on the FactIQ MCP server, which Claude Code talks to natively (see the
+plugin's .mcp.json). This CLI is only what the read-only MCP deliberately does
+NOT expose: storing/verifying the API key, and the two publishing endpoints —
+`share-chart` (POST /shared-charts) and `share-report` (POST /tools/report).
+
+Stdlib only (Python 3.10+). Every subcommand talks to the FactIQ backend over
+HTTP and prints JSON to stdout.
 
 Config lives at ~/.factiq/config.json. Resolution order for the API base URL:
 --base-url flag > FACTIQ_API_URL env > config > https://api.worlddb.ai.
@@ -210,62 +216,6 @@ def api_request(
     return payload
 
 
-def emit(payload: dict, args: argparse.Namespace) -> None:
-    """Print payload to stdout, or write it to --out and print a stub.
-
-    The --out pattern keeps large result sets out of the orchestrator's
-    context: full data goes to disk, stdout carries only the shape.
-
-    Tool-level failures (SQL errors, statement timeouts) arrive as HTTP 200
-    with an `error` body. Surface them like any other failure — stderr and a
-    non-zero exit — and never write them to --out, where a poisoned file
-    crashes downstream parsing long after the failed call.
-    """
-    if isinstance(payload, dict) and payload.get("error"):
-        print(json.dumps(payload, indent=2, default=str), file=sys.stderr)
-        sys.exit(4)
-
-    out = getattr(args, "out", None)
-    if out:
-        with open(out, "w") as f:
-            json.dump(payload, f, indent=2)
-        stub = {"out": out}
-        for key in (
-            "columns",
-            "row_count",
-            "total_row_count",
-            "title",
-            "schema_name",
-            "truncated",
-            "note",
-        ):
-            if key in payload:
-                stub[key] = payload[key]
-        rows = payload.get("results")
-        if isinstance(rows, list):
-            # Always surface how many rows actually landed in --out. When the
-            # server truncates, its row_count is the pre-truncation total, so
-            # an agent reading only the stub would otherwise have no signal
-            # that the written file holds a partial (and, with ORDER BY, a
-            # non-random) slice.
-            stub["written_rows"] = len(rows)
-            stub.setdefault("row_count", len(rows))
-        print(json.dumps(stub, indent=2))
-        if payload.get("truncated"):
-            # Silent partial data is a correctness hazard, not an FYI — make
-            # it loud on stderr so it is hard to miss even when stdout is
-            # consumed programmatically.
-            written = len(rows) if isinstance(rows, list) else "?"
-            note = payload.get("note") or (
-                f"Result truncated: wrote {written} of "
-                f"{payload.get('row_count', '?')} rows to {out}. Narrow the "
-                "query or raise --max-rows to fetch the rest."
-            )
-            print(f"WARNING: {note}", file=sys.stderr)
-    else:
-        print(json.dumps(payload, indent=2, default=str))
-
-
 # ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
@@ -350,117 +300,14 @@ def cmd_set_key(args: argparse.Namespace) -> None:
 
 
 def cmd_whoami(args: argparse.Namespace) -> None:
-    emit(api_request(args, "GET", "/auth/me"), args)
+    """Verify the stored publishing API key and show the account it belongs to.
 
-
-def cmd_context(args: argparse.Namespace) -> None:
-    emit(
-        api_request(
-            args,
-            "GET",
-            "/tools/context",
-            params={
-                "schemas": args.schemas,
-                "full": "true" if args.full else None,
-            },
-            timeout_hint=(
-                "Retry with --schemas to narrow the response "
-                "(e.g. --schemas bls,bea,census); the full schema list is "
-                "included either way."
-            ),
-        ),
-        args,
-    )
-
-
-def cmd_search_datasets(args: argparse.Namespace) -> None:
-    body: dict = {"query": args.query, "limit": args.limit}
-    if args.schemas:
-        body["schemas"] = [s.strip() for s in args.schemas.split(",") if s.strip()]
-    emit(api_request(args, "POST", "/tools/search_datasets", body), args)
-
-
-def cmd_describe(args: argparse.Namespace) -> None:
-    path = (
-        "/tools/describe_dataset/"
-        + urllib.parse.quote(args.schema, safe="")
-        + "/"
-        + urllib.parse.quote(args.dataset_code, safe="")
-    )
-    emit(api_request(args, "GET", path), args)
-
-
-def cmd_search(args: argparse.Namespace) -> None:
-    if len(args.schema) != len(args.terms):
-        fail("Provide one --terms per --schema (repeat the pair per schema).")
-    queries = [
-        {"schema": schema, "terms": [t.strip() for t in terms.split(",") if t.strip()]}
-        for schema, terms in zip(args.schema, args.terms)
-    ]
-    body = {
-        "queries": queries,
-        "limit": args.limit,
-        "include_compound": not args.no_compound,
-    }
-    emit(api_request(args, "POST", "/tools/search", body), args)
-
-
-def cmd_sql(args: argparse.Namespace) -> None:
-    query = args.query
-    if args.query_file:
-        with open(args.query_file) as f:
-            query = f.read()
-    if not query:
-        fail("Provide --query or --query-file.")
-    body = {
-        "question": args.question or "",
-        "sql": query,
-        "schema": args.schema,
-        "exploration": args.explore,
-        "auto_retry": args.auto_retry,
-        "sample": not args.full,
-        "max_rows": args.max_rows,
-    }
-    emit(api_request(args, "POST", "/tools/sql", body), args)
-
-
-def cmd_series(args: argparse.Namespace) -> None:
-    series_id = urllib.parse.quote(args.series_id, safe="")
-    emit(
-        api_request(
-            args,
-            "GET",
-            f"/tools/series/{args.schema}/{series_id}",
-            params={
-                "from_year": args.from_year,
-                "to_year": args.to_year,
-                "sample": str(not args.full).lower(),
-            },
-        ),
-        args,
-    )
-
-
-def cmd_market(args: argparse.Namespace) -> None:
-    body = {
-        "function": args.function,
-        "symbol": args.symbol,
-        "interval": args.interval,
-        "outputsize": args.outputsize,
-        "sample": not args.full,
-    }
-    emit(api_request(args, "POST", "/tools/market", body), args)
-
-
-def cmd_earnings(args: argparse.Namespace) -> None:
-    body = {
-        "query": args.query,
-        "search_target": args.target,
-        "company_filter": args.companies.split(",") if args.companies else None,
-        "quarter_filter": args.quarter,
-        "limit": args.limit,
-    }
-    emit(api_request(args, "POST", "/tools/earnings", body), args)
+    The MCP server has no whoami tool, and `/factiq:status` / `set-key` need a
+    way to confirm the `fiq_` key that the publishing endpoints authenticate
+    with; this hits the same `/auth/me` the key check has always used.
+    """
+    payload = api_request(args, "GET", "/auth/me")
+    print(json.dumps(payload, indent=2, default=str))
 
 
 # Quoted SQL literals that look like series ids (letters + digits, e.g.
@@ -680,7 +527,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser = argparse.ArgumentParser(
-        prog="factiq.py", description="FactIQ tools API client", parents=[shared]
+        prog="factiq.py",
+        description="FactIQ auth + publishing CLI (data tools live on the MCP "
+        "server; see the plugin's .mcp.json)",
+        parents=[shared],
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -694,118 +544,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("whoami", help="Show the authenticated user", parents=[shared])
     p.set_defaults(func=cmd_whoami)
-
-    p = sub.add_parser(
-        "context",
-        help="Schema index + table structure (lean; --full for per-dataset dump)",
-        parents=[shared],
-    )
-    p.add_argument("--schemas", help="Comma-separated schema filter, e.g. bls,bea")
-    p.add_argument(
-        "--full",
-        action="store_true",
-        help="Return the heavy per-dataset description dump (default is the "
-        "compact schema index — use search-datasets/describe for detail)",
-    )
-    p.add_argument("--out", help="Write full JSON to file, print a stub")
-    p.set_defaults(func=cmd_context)
-
-    p = sub.add_parser(
-        "search-datasets",
-        help="Find datasets by keyword across all schemas (start here)",
-        parents=[shared],
-    )
-    p.add_argument("--query", required=True, help="Free-text search terms")
-    p.add_argument("--schemas", help="Comma-separated schema filter, e.g. mospi,rbi")
-    p.add_argument("--limit", type=int, default=15)
-    p.add_argument("--out")
-    p.set_defaults(func=cmd_search_datasets)
-
-    p = sub.add_parser(
-        "describe",
-        help="Full metadata for one dataset (after search-datasets)",
-        parents=[shared],
-    )
-    p.add_argument("schema")
-    p.add_argument("dataset_code")
-    p.add_argument("--out")
-    p.set_defaults(func=cmd_describe)
-
-    p = sub.add_parser(
-        "search", help="Series catalog search by title terms", parents=[shared]
-    )
-    p.add_argument(
-        "--schema", action="append", required=True, help="Schema (repeatable)"
-    )
-    p.add_argument(
-        "--terms",
-        action="append",
-        required=True,
-        help="Comma-separated terms for the preceding --schema (repeatable)",
-    )
-    p.add_argument("--limit", type=int, default=15)
-    p.add_argument("--no-compound", action="store_true")
-    p.add_argument("--out")
-    p.set_defaults(func=cmd_search)
-
-    p = sub.add_parser(
-        "sql", help="Run read-only SQL against a schema", parents=[shared]
-    )
-    p.add_argument("--schema", required=True)
-    p.add_argument("--query", help="SQL text")
-    p.add_argument("--query-file", help="Read SQL from a file")
-    p.add_argument("--question", help="The question motivating the query")
-    p.add_argument("--explore", action="store_true", help="Data exploration query")
-    p.add_argument(
-        "--auto-retry",
-        action="store_true",
-        help="Opt into the server-side LLM reviser on zero rows",
-    )
-    p.add_argument(
-        "--full", action="store_true", help="Full rows instead of sampled preview"
-    )
-    p.add_argument("--max-rows", type=int, default=500)
-    p.add_argument("--out")
-    p.set_defaults(func=cmd_sql)
-
-    p = sub.add_parser(
-        "series", help="Fetch one series (incl. COMPOUND::)", parents=[shared]
-    )
-    p.add_argument("schema")
-    p.add_argument("series_id")
-    p.add_argument("--from-year", type=int)
-    p.add_argument("--to-year", type=int)
-    p.add_argument("--full", action="store_true")
-    p.add_argument("--out")
-    p.set_defaults(func=cmd_series)
-
-    p = sub.add_parser(
-        "market",
-        help="Market data (quotes, fundamentals, commodities)",
-        parents=[shared],
-    )
-    p.add_argument("function", help="e.g. GLOBAL_QUOTE, TIME_SERIES_DAILY, WTI")
-    p.add_argument("--symbol")
-    p.add_argument("--interval")
-    p.add_argument("--outputsize", default="compact")
-    p.add_argument("--full", action="store_true")
-    p.add_argument("--out")
-    p.set_defaults(func=cmd_market)
-
-    p = sub.add_parser(
-        "earnings", help="Search earnings call intelligence", parents=[shared]
-    )
-    p.add_argument("query")
-    p.add_argument(
-        "--target",
-        default="all",
-        choices=["all", "sections", "themes", "qa_exchanges"],
-    )
-    p.add_argument("--companies", help="Comma-separated tickers")
-    p.add_argument("--quarter", help="e.g. 2025Q4")
-    p.add_argument("--limit", type=int, default=10)
-    p.add_argument("--out")
-    p.set_defaults(func=cmd_earnings)
 
     p = sub.add_parser(
         "share-chart", help="Publish a ChartSpec, get a share URL", parents=[shared]
