@@ -5,7 +5,11 @@ disable-model-invocation: true
 allowed-tools: Bash(python3:*), Bash(python:*)
 ---
 
-Store the user's FactIQ API key so the factiq skill can authenticate.
+Store the user's FactIQ API key so the factiq skill can **publish** charts and
+reports (`share-chart` / `share-report`). Note for the user: the **data** tools
+(catalog, SQL, series, market, earnings) authenticate separately through the
+FactIQ MCP server — to connect those, run `/mcp`, pick **factiq**, and complete
+the browser sign-in. This key is only needed when publishing.
 
 Arguments: "$ARGUMENTS"
 

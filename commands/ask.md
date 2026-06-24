@@ -2,7 +2,17 @@
 description: Answer a data question with FactIQ — a quick chart or a full report
 argument-hint: "<question, e.g. How has US unemployment changed since 2019?>"
 disable-model-invocation: true
-allowed-tools: Bash(python3:*), Bash(python:*), Read, Write, AskUserQuestion
+allowed-tools: >
+  mcp__plugin_factiq_factiq__get_data_catalog,
+  mcp__plugin_factiq_factiq__search_datasets,
+  mcp__plugin_factiq_factiq__describe_dataset,
+  mcp__plugin_factiq_factiq__search_series,
+  mcp__plugin_factiq_factiq__get_series,
+  mcp__plugin_factiq_factiq__run_sql,
+  mcp__plugin_factiq_factiq__get_market_data,
+  mcp__plugin_factiq_factiq__search_earnings,
+  mcp__plugin_factiq_factiq__get_style_guides,
+  Bash(python3:*), Bash(python:*), Read, Write, AskUserQuestion
 ---
 
 Answer this question with real data from FactIQ:
@@ -11,6 +21,10 @@ Answer this question with real data from FactIQ:
 
 Read `${CLAUDE_PLUGIN_ROOT}/SKILL.md` first. If no question was provided
 above, ask the user what they want to know.
+
+Data comes from the FactIQ MCP tools (`mcp__plugin_factiq_factiq__*`). If they
+aren't available or return an auth error, the MCP isn't connected — tell the
+user to run `/mcp`, pick **factiq**, and complete the Connect flow, then retry.
 
 **Pick the output mode before doing any data work:**
 
@@ -29,8 +43,8 @@ single chart could plausibly satisfy it — use the AskUserQuestion tool to
 offer the two modes, noting that the report takes noticeably longer and uses
 more of their tokens and FactIQ tool quota.
 
-Then follow SKILL.md's orchestration workflow (context → discover → fetch →
-compute) and finish per the mode:
+Then follow SKILL.md's orchestration workflow (catalog → discover → fetch →
+compute, all via the MCP tools) and finish per the mode:
 
 - **Quick chart** → build a ChartSpec (`references/chart-spec.md`), publish
   with `share-chart`, and return the share URL plus a short narrative of
