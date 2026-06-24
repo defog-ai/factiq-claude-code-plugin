@@ -1,11 +1,10 @@
-# ChartSpec and share-chart
+# ChartSpec and share_chart
 
-`share-chart --spec chart.json` POSTs the spec to the FactIQ backend
-(API-key auth) and returns `{shareId, shareUrl}` — a live, rendered chart
-page. The chart is owned by your API key's user, so you can edit it in place
-and restore earlier versions from the UI on `/share-chart/<id>`. The CLI
-accepts either a bare ChartSpec or a `{chart: {...}, question: "..."}`
-envelope.
+The `share_chart` MCP tool (`chart`, optional `question`) publishes the spec to
+the FactIQ backend and returns `{share_id, share_url}` — a live, rendered chart
+page. The chart is owned by your account, so you can edit it in place and
+restore earlier versions from the UI on `/share-chart/<id>`. Pass the ChartSpec
+object as the `chart` argument.
 
 ## Minimal valid spec
 
@@ -156,13 +155,15 @@ Two rules the panel depends on:
    a series with `from_year` / `to_year`; a line chart wants a few hundred
    points at most.
 2. Build the wide-format `data` array from the fetched values — compute any
-   derived metrics (YoY, indexing, ratios) yourself, and emit the full spec to
-   `chart.json` (write it with the Write tool, or a small local Python script).
-   Sort rows by the x value first — some series come back reverse-chronological,
-   which would render a backwards x-axis.
+   derived metrics (YoY, indexing, ratios) yourself, and assemble the full spec
+   object (in context, or write it to a file with the Write tool / a small local
+   Python script if the data array is large). Sort rows by the x value first —
+   some series come back reverse-chronological, which would render a backwards
+   x-axis.
 3. Validate locally that every `series[].key` and `xField.key` exists in the
    `data` rows, and that the spec carries both `sources[]` and a `lineage`
    DAG (see above) — they are what the share page shows as the Data Source
    line and the "How we built this" panel.
-4. `python3 scripts/factiq.py share-chart --spec chart.json --question "..."`
-5. Return the `shareUrl`.
+4. Call `share_chart` with `chart` = the spec object (and `question` = the
+   question it answers).
+5. Return the `share_url`.

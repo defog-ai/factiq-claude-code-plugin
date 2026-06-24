@@ -12,6 +12,8 @@ allowed-tools: >
   mcp__plugin_factiq_factiq__get_market_data,
   mcp__plugin_factiq_factiq__search_earnings,
   mcp__plugin_factiq_factiq__get_style_guides,
+  mcp__plugin_factiq_factiq__share_chart,
+  mcp__plugin_factiq_factiq__share_report,
   Bash(python3:*), Bash(python:*), Read, Write, AskUserQuestion
 ---
 
@@ -22,9 +24,10 @@ Answer this question with real data from FactIQ:
 Read `${CLAUDE_PLUGIN_ROOT}/SKILL.md` first. If no question was provided
 above, ask the user what they want to know.
 
-Data comes from the FactIQ MCP tools (`mcp__plugin_factiq_factiq__*`). If they
-aren't available or return an auth error, the MCP isn't connected — tell the
-user to run `/mcp`, pick **factiq**, and complete the Connect flow, then retry.
+Everything — discovery, fetching, and publishing — runs through the FactIQ MCP
+tools (`mcp__plugin_factiq_factiq__*`). If they aren't available or return an
+auth error, the MCP isn't connected — tell the user to run `/mcp`, pick
+**factiq**, and complete the Connect flow, then retry.
 
 **Pick the output mode before doing any data work:**
 
@@ -47,8 +50,8 @@ Then follow SKILL.md's orchestration workflow (catalog → discover → fetch �
 compute, all via the MCP tools) and finish per the mode:
 
 - **Quick chart** → build a ChartSpec (`references/chart-spec.md`), publish
-  with `share-chart`, and return the share URL plus a short narrative of
-  what the data shows.
+  with the `share_chart` tool, and return the share URL plus a short narrative
+  of what the data shows.
 - **Detailed report** → follow SKILL.md's **Detailed reports** section and
-  `references/report-spec.md`, publish with `share-report`, and return the
-  share URL plus the report's key findings.
+  `references/report-spec.md`, publish with the `share_report` tool, and return
+  the share URL plus the report's key findings.

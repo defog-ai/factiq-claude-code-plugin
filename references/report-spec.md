@@ -1,22 +1,19 @@
-# Report JSON and share-report
+# Report JSON and share_report
 
-`share-report --report report.json` POSTs the report to `POST /tools/report`
-(API-key auth) and returns the server response plus a `shareUrl`. The server
-stores it as a completed, publicly shared FactIQ run, so the link renders on
-the standard share-report page: bulleted summary, sections of narrative +
-charts, per-chart Data Source line and "How we built this" lineage panel,
-methodology notes. The run also appears in your FactIQ history, and anyone
-opening the link can fork it into their own account.
+The `share_report` MCP tool (`question`, `report`, optional `model`) publishes
+the report and returns the server response plus a `share_url`. The server stores
+it as a completed, publicly shared FactIQ run, so the link renders on the
+standard share-report page: bulleted summary, sections of narrative + charts,
+per-chart Data Source line and "How we built this" lineage panel, methodology
+notes. The run also appears in your FactIQ history, and anyone opening the link
+can fork it into their own account.
 
-The CLI accepts either a bare report (`{summary, sections, ...}`, pass
-`--question` on the command line) or a full request envelope:
+The tool arguments are:
 
-```json
-{
-  "question": "How has US unemployment evolved since 2022?",
-  "model": "claude-sonnet-4-6 (factiq-skill)",
-  "report": { ... }
-}
+```
+question: "How has US unemployment evolved since 2022?"
+report:   { summary, sections, methodology_notes? }   # the report object below
+model:    "claude-opus-4-8 (factiq-skill)"             # optional
 ```
 
 `model` is a free-text label for who authored the report — pass your own
@@ -117,11 +114,12 @@ because reports get them wrong most often:
 
 ## Validation and limits
 
-The CLI pre-checks the basics; the server then validates against the real
-chart schemas and 422s with the failing field paths (e.g.
-`sections[1].charts[0].x_column: Field required`). Fix and re-run — nothing
-is published on a 422. Server caps: 12 sections, 16 charts, 1,200 rows and
-40 columns per chart, 30k chars per narrative, 5k for the summary.
+The `share_report` tool validates the report against the real chart schemas and
+returns a tool error naming the failing field paths (e.g.
+`sections[1].charts[0].x_column: Field required`). Fix and call it again —
+nothing is published until it validates. Server caps: 12 sections, 16 charts,
+1,200 rows and 40 columns per chart, 30k chars per narrative, 5k for the
+summary.
 
 ## Worked example
 
@@ -229,9 +227,9 @@ is published on a 422. Server caps: 12 sections, 16 charts, 1,200 rows and
    session. Results cap at 50 rows — aggregate in SQL to the granularity each
    chart needs (a report chart wants ≤300 points anyway).
 2. Outline: 2–5 section claims, one or two charts each that prove the claim.
-3. Build `report.json` from the fetched values — emit it with the Write tool
-   or a small local Python script; don't hand-type data rows.
-4. `python3 scripts/factiq.py share-report --report report.json`
-   (add `--question "..."` if the file is a bare report, and `--model` with
-   your model name).
-5. Return the `shareUrl` and the report's key findings.
+3. Build the report object from the fetched values — assemble it in context, or
+   write the data arrays with the Write tool / a small local Python script;
+   don't hand-type data rows.
+4. Call `share_report` with `question`, `report` (the object), and optional
+   `model`.
+5. Return the `share_url` and the report's key findings.

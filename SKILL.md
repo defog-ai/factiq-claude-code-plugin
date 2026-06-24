@@ -22,25 +22,26 @@ allowed-tools: >
   mcp__plugin_factiq_factiq__get_market_data,
   mcp__plugin_factiq_factiq__search_earnings,
   mcp__plugin_factiq_factiq__get_style_guides,
+  mcp__plugin_factiq_factiq__share_chart,
+  mcp__plugin_factiq_factiq__share_report,
   Bash(python3:*), Bash(python:*), Read, Write
 ---
 
 # FactIQ Data Tools
 
-You are the analyst. FactIQ provides authenticated **MCP tools** for the data
-work (catalog, dataset/series search, read-only SQL, series lookup, market
-data, earnings search) and a small **CLI** for the two things the read-only
-MCP deliberately does not do — publish a shareable chart, or publish a
-fully formed multi-section report. There is no server-side agent in this loop:
-you decompose the question, find the data with the MCP tools, do the math with
-your own tokens, and author the output.
+You are the analyst. FactIQ provides authenticated **MCP tools** for the whole
+loop — discover the data (catalog, dataset/series search, read-only SQL, series
+lookup, market data, earnings search), then publish the result (`share_chart`,
+`share_report`). There is no server-side agent: you decompose the question, find
+the data with the MCP tools, do the math with your own tokens, author the
+output, and publish it with a tool call.
 
 Three output modes:
 
-- **Quick chart** (`share-chart`) — one focused chart published to FactIQ as a
-  share link. Default for questions about a single metric or comparison.
-- **Detailed report** (`share-report`) — summary + sections of narrative and
-  charts + methodology, rendered on FactIQ's share-report page exactly like
+- **Quick chart** (`share_chart` tool) — one focused chart published to FactIQ
+  as a share link. Default for questions about a single metric or comparison.
+- **Detailed report** (`share_report` tool) — summary + sections of narrative
+  and charts + methodology, rendered on FactIQ's share-report page exactly like
   the in-house agent's reports. For broad or analytical questions. See
   **Detailed reports** below.
 - **Bespoke local viz** (`build_viz.py`) — a self-contained HTML file you
@@ -51,58 +52,39 @@ Three output modes:
 
 **Data in, output out:**
 
-- All data discovery and fetching go through the FactIQ **MCP tools**
-  (`mcp__plugin_factiq_factiq__*`). No codebase or database access is needed —
-  Claude Code calls them directly.
-- Publishing and bespoke viz go through the bundled CLI / scripts:
+- All discovery, fetching, **and publishing** go through the FactIQ **MCP
+  tools** (`mcp__plugin_factiq_factiq__*`). No codebase, database, or API key is
+  needed — Claude Code calls them directly over one authenticated connection.
+- The only local script is the bespoke-viz builder (it never touches the API):
 
   ```bash
-  python3 scripts/factiq.py share-chart  ...   # path relative to this skill dir
-  python3 scripts/factiq.py share-report ...
-  python3 scripts/build_viz.py    ...
+  python3 scripts/build_viz.py  ...   # path relative to this skill dir
   ```
 
-  Shell working directory resets between calls — resolve each script's absolute
+  Shell working directory resets between calls — resolve the script's absolute
   path once (from this skill's directory) and reuse it.
 
 ## Setup
 
-There are two independent credentials, because data and publishing go through
-different surfaces:
-
-1. **MCP connection (data tools) — OAuth.** The data tools live on the FactIQ
-   MCP server bundled with this plugin (`.mcp.json`). On first use Claude Code
-   runs FactIQ's browser-based **Connect** flow. If the `mcp__plugin_factiq_*`
-   tools are missing or return an auth error, the connection isn't set up yet —
-   tell the user to run **`/mcp`** in Claude Code, pick **factiq**, and complete
-   the sign-in (the same FactIQ login: email, Google, or passkey). No key to
-   copy or paste.
-
-2. **Publishing key (`fiq_...`) — for `share-chart` / `share-report` only.**
-   Check it with `python3 scripts/factiq.py whoami`. If it fails, tell the user
-   to sign in at https://factiq.com, open **Settings → Security**
-   (https://factiq.com/settings/security), click **Generate API key** (shown
-   only once), then store it:
-
-   ```bash
-   # Prompts securely, verifies against the API, stores in ~/.factiq/config.json:
-   python3 scripts/factiq.py set-key
-   # Non-interactive: --key fiq_... also works
-   ```
-
-   `/factiq:set-key` walks the user through this. You only need this key when
-   you are about to publish; pure data analysis works with just the MCP
-   connection.
+One connection covers everything: the FactIQ **MCP server** bundled with this
+plugin (`.mcp.json`), authorized over OAuth. On first use Claude Code runs
+FactIQ's browser-based **Connect** flow. If the `mcp__plugin_factiq_*` tools are
+missing or return an auth error, the connection isn't set up yet — tell the user
+to run **`/mcp`** in Claude Code, pick **factiq**, and complete the sign-in (the
+same FactIQ login: email, Google, or passkey). Nothing to copy or paste, and no
+separate key for publishing — the same connection authorizes `share_chart` /
+`share_report`.
 
 **Local development.** The MCP URL defaults to `https://api.worlddb.ai/mcp`;
-override it for a local backend by setting `FACTIQ_MCP_URL=http://localhost:8000/mcp`
-before Claude Code starts (it expands in `.mcp.json`). The publishing CLI
-targets `https://api.worlddb.ai` and the web origin `https://www.factiq.com`;
-override with `FACTIQ_API_URL` / `FACTIQ_WEB_URL` (or `--base-url` / `--web-url`).
+override it for a local backend by setting
+`FACTIQ_MCP_URL=http://localhost:8000/mcp` before Claude Code starts (it expands
+in `.mcp.json`).
 
 ## Tools
 
-### Data — MCP (`mcp__plugin_factiq_factiq__*`)
+All FactIQ tools are MCP tools (`mcp__plugin_factiq_factiq__*`).
+
+### Data
 
 | Tool | Purpose |
 |---|---|
@@ -123,18 +105,22 @@ SUM/AVG/rank/ratio) and fetch that, or window a single series with
 `from_year` / `to_year`. There is no "give me everything" option, by design —
 see **Context budget** below.
 
-### Publishing + local viz — CLI
+### Publishing
 
-| Command | Purpose |
+| Tool | Purpose |
 |---|---|
-| `factiq.py share-chart --spec chart.json [--question "..."]` | Publish a ChartSpec (owned by your API key, editable from the UI), returns `{shareId, shareUrl}`. |
-| `factiq.py share-report --report report.json [--question "..."] [--model "..."]` | Publish a multi-section report as a public shared run, returns `{shareUrl, ...}`. |
-| `factiq.py set-key` / `whoami` | Store / verify the `fiq_` publishing key. |
-| `build_viz.py assemble … / render …` | Build + screenshot a bespoke local HTML viz (see **Bespoke local visualizations**). Local-only; never calls the API. |
+| `share_chart` (`chart`, `question?`) | Publish a ChartSpec object (owned by your account, editable from the UI). Returns `{share_id, share_url}`. |
+| `share_report` (`question`, `report`, `model?`) | Publish a multi-section report (`{summary, sections, …}`) as a public shared run. Returns the publish result incl. `share_url`. |
 
-The publishing commands print JSON to stdout; errors go to stderr with a
-non-zero exit (2 = HTTP error, 3 = rate limit / quota, 4 = a server-reported
-error). MCP tool errors surface as the tool's error result.
+Pass the spec/report as the tool argument directly — build the object in your
+context (or with the Write tool / local Python for large data arrays) and hand
+it to the tool. A validation failure comes back as a tool error naming the bad
+field; nothing is published until it validates.
+
+### Local viz — `build_viz.py`
+
+`build_viz.py assemble … / render …` builds + screenshots a bespoke local HTML
+viz (see **Bespoke local visualizations**). Local-only; never calls the API.
 
 ## Orchestration workflow
 
@@ -161,14 +147,14 @@ error). MCP tool errors surface as the tool's error result.
    code interpreter in this loop.
 5. **Recent market data.** The DB lags for very recent market/price data — use
    `get_market_data` for current quotes, commodities, and FX.
-6. **Publish or build.** Quick-chart mode: write a ChartSpec JSON (see
-   `references/chart-spec.md`) with wide-format data rows, then
-   `share-chart --spec chart.json`; return the `shareUrl`. Report mode: write a
-   report JSON (see `references/report-spec.md` and **Detailed reports**
-   below), then `share-report --report report.json`; return the `shareUrl`.
-   Bespoke-viz mode: write the fetched data to JSON files, author an HTML file,
-   `build_viz.py assemble`, `build_viz.py render` to screenshot and iterate,
-   then give the user the local file path (see **Bespoke local visualizations**).
+6. **Publish or build.** Quick-chart mode: build a ChartSpec object (see
+   `references/chart-spec.md`) with wide-format data rows and call
+   `share_chart`; return the `share_url`. Report mode: build a report object
+   (see `references/report-spec.md` and **Detailed reports** below) and call
+   `share_report`; return the `share_url`. Bespoke-viz mode: write the fetched
+   data to JSON files, author an HTML file, `build_viz.py assemble`,
+   `build_viz.py render` to screenshot and iterate, then give the user the local
+   file path (see **Bespoke local visualizations**).
 
 ## Detailed reports
 
@@ -197,9 +183,10 @@ Ground rules:
 - **Don't pad.** If the data only supports one chart, publish a quick chart
   instead of inflating a report.
 
-`share-report` validates locally, POSTs to `/tools/report`, and prints the
-server response plus a `shareUrl`. The report appears in your FactIQ history
-and can be forked by anyone who opens the share link.
+The `share_report` tool validates the report against FactIQ's real chart
+schemas server-side, stores it as a completed public run, and returns the
+`share_url`. The report appears in your FactIQ history and can be forked by
+anyone who opens the share link.
 
 ## Bespoke local visualizations
 
@@ -242,8 +229,8 @@ look → fix**:
 
 Every row-returning MCP tool (`run_sql`, `get_series`) returns **at most 50
 rows**, and there is no "give me everything" option — by design. The cap keeps
-results context-sized, so unlike the old CLI you do **not** stage data to disk
-to protect your context; you take the tool result directly.
+results context-sized, so you do **not** stage data to disk to protect your
+context; you take the tool result directly.
 
 When a result comes back `"truncated": true`, there is more data and your move
 is to **aggregate or compute it in SQL**, not to try to fetch the raw rows:
@@ -262,10 +249,13 @@ to a JSON file before assembling.
 ## Errors and limits
 
 - **MCP tool unavailable / auth error** — the FactIQ MCP isn't connected. Tell
-  the user to run `/mcp`, pick **factiq**, and complete the Connect flow.
+  the user to run `/mcp`, pick **factiq**, and complete the Connect flow. The
+  same connection authorizes both the data tools and `share_chart` /
+  `share_report`, so this fixes publishing failures too.
 - **429** — either the 1 request/second rate limit or the monthly tool-call
-  quota (the error says when it resets). Don't burn calls re-fetching data you
-  already have.
+  quota (the error says when it resets). Note that publishing counts against the
+  same monthly tool quota as the data tools. Don't burn calls re-fetching data
+  you already have.
 - **403** — that schema is admin-restricted for this account; drop it.
 - **SQL errors** come back in the tool result as an `error` (syntax errors,
   timeouts, bad column names). Revise the query and rerun.
@@ -276,21 +266,18 @@ to a JSON file before assembling.
   (`series_id`, `dataset_code`) instead of scanning titles, and never
   pattern-match `series_id` on `data_points` — resolve ids from `series` first
   (see the pitfall in `references/sql-guide.md`).
-- **Publishing 401** (`share-chart` / `share-report`, exit 2) — the `fiq_` key
-  is missing or was regenerated. Point the user at
-  https://factiq.com/settings/security and re-run `set-key`.
-- **share-report 422** — the server re-validates the report against its real
-  chart schemas and names the failing field paths (e.g.
-  `sections[1].charts[0].x_column`). Fix the named fields and re-run; nothing
-  was published.
+- **Publishing validation error** — `share_chart` / `share_report` validate the
+  payload against FactIQ's real chart schemas and return a tool error naming the
+  failing field paths (e.g. `sections[1].charts[0].x_column`). Fix the named
+  fields and call the tool again; nothing is published until it validates.
 
 ## References
 
 - `references/sql-guide.md` — table structure, query idioms, pitfalls
   (frequency literals, national vs sub-national, pivots, tabular data).
 - `references/chart-spec.md` — ChartSpec format, chart-type selection, a
-  worked share-chart example.
-- `references/report-spec.md` — report JSON format for `share-report`:
+  worked `share_chart` example.
+- `references/report-spec.md` — report JSON format for `share_report`:
   sections, per-chart fields, sources/lineage authoring, limits, a worked
   example.
 - `references/viz-guide.md` — bespoke local HTML visualizations with
