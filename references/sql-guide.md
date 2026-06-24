@@ -1,8 +1,11 @@
 # FactIQ SQL Guide
 
-SQL runs read-only against one schema per call (`sql --schema bls ...`).
-The server sets `search_path` to that schema, so reference tables bare
-(`series`, not `bls.series`). Statements are capped at 30 seconds.
+SQL runs read-only against one schema per call — the `run_sql` MCP tool, with
+`schema="bls"` and `sql="..."`. The server sets `search_path` to that schema,
+so reference tables bare (`series`, not `bls.series`). Statements are capped at
+30 seconds, and **every result is capped at 50 rows** — aggregate in SQL to the
+granularity you actually need rather than pulling raw rows (see "Pivoting" and
+"Efficiency" below).
 
 ## Table structure (identical in every schema)
 
@@ -17,9 +20,9 @@ The server sets `search_path` to that schema, so reference tables bare
 - **`tabular_data`** — JSONB `row_data` per row, for `data_type = 'tabular'`
   series only.
 - **`compound_series`** — curated derived series with ids like
-  `COMPOUND::...`. Fetch them with the `series` subcommand, not raw SQL.
+  `COMPOUND::...`. Fetch them with the `get_series` tool, not raw SQL.
 
-The `context` subcommand returns the full DDL.
+The `get_data_catalog` tool returns the full DDL.
 
 ## Always-true conventions
 
@@ -47,13 +50,13 @@ SELECT series_id, series_title, dataset_code, frequency,
 FROM series WHERE dataset_code ILIKE '<dataset>' LIMIT 5
 ```
 
-Run these with `--explore` so the server treats them as exploration.
+Run these with `explore=true` so the server treats them as exploration.
 
 ## Keep SQL simple and broad
 
 Don't stack ILIKE conditions — you'll miss valid rows and get zero results.
-A broad query returning 50 rows beats a narrow one returning 0 (the preview
-is sampled anyway).
+A broad query returning 50 rows beats a narrow one returning 0 (results are
+capped at 50 rows either way).
 
 ```sql
 -- Bad: over-filtered, likely 0 rows
@@ -140,17 +143,21 @@ ORDER BY time
 ## Tabular data
 
 Series with `data_type = 'tabular'` store rows in `tabular_data.row_data`
-(JSONB), described by `series.tabular_columns`. The `series` subcommand
-handles them transparently (returns columns + results like a timeseries) —
-prefer it. For direct SQL: `row_data->>'column_name'` extracts text; cast
-with `::numeric` for math.
+(JSONB), described by `series.tabular_columns`. The `get_series` tool handles
+them transparently (returns columns + results like a timeseries) — prefer it.
+For direct SQL: `row_data->>'column_name'` extracts text; cast with `::numeric`
+for math.
 
 ## Efficiency
 
 - Most questions need 2–4 data calls. Batch independent fetches in one turn.
-- Don't re-fetch via `series` what a `sql` call already returned — both are
-  equally chartable.
-- Use `series` for 1–2 known ids; `sql` for 3+ series, joins, aggregations.
+- Don't re-fetch via `get_series` what a `run_sql` call already returned — both
+  are equally chartable.
+- Use `get_series` for 1–2 known ids; `run_sql` for 3+ series, joins,
+  aggregations.
+- Results cap at 50 rows. If a fetch comes back `"truncated": true`, aggregate
+  in SQL (`GROUP BY date_trunc(...)`, a SUM/AVG/rank) rather than trying to
+  pull the rest — a chart needs the aggregated result anyway.
 - Zero rows means your filter missed — broaden the term or drop a condition
-  and rerun. You revise faster and cheaper than the server's `--auto-retry`
+  and rerun. You revise faster and cheaper than the server's `auto_retry`
   LLM reviser.

@@ -1,9 +1,9 @@
 # FactIQ Data Schemas
 
-Static overview. The `context` subcommand returns the live, authoritative
+Static overview. The `get_data_catalog` tool returns the live, authoritative
 catalog with full per-dataset descriptions — run it before relying on this
-file. Some schemas are admin-only and simply won't appear in your `context`
-output (requests to them return 403).
+file. Some schemas are admin-only and simply won't appear in your
+`get_data_catalog` output (requests to them return 403).
 
 ## United States
 
@@ -16,14 +16,14 @@ output (requests to them return 403).
 | `eia` | Energy Information Administration | Petroleum, natural gas, electricity, renewables — production, consumption, prices |
 | `ers` | USDA Economic Research Service | Agricultural and food economics |
 | `bts` | Bureau of Transportation Statistics | Transportation and freight |
-| `earnings` | Alpha Vantage / earnings calls | Earnings-call transcripts intelligence — searched via the `earnings` subcommand, not SQL |
+| `earnings` | Alpha Vantage / earnings calls | Earnings-call transcripts intelligence — searched via the `search_earnings` tool, not SQL |
 
 ## China
 
 | Schema | Source | Coverage |
 |---|---|---|
 | `china` | National Bureau of Statistics | Macro indicators: GDP, industrial production, fixed-asset investment, prices |
-| `china_customs` | General Administration of Customs (GACC) | Monthly imports/exports by 8-digit HS line and partner country (incl. rare earths). Data not yet loaded (listed under `schemas_without_data` in `context`) — for China–US trade use the `us_census_hs` mirror in `census` (US imports from China ≈ Chinese exports to the US) |
+| `china_customs` | General Administration of Customs (GACC) | Monthly imports/exports by 8-digit HS line and partner country (incl. rare earths). Data not yet loaded (listed under `schemas_without_data` in `get_data_catalog`) — for China–US trade use the `us_census_hs` mirror in `census` (US imports from China ≈ Chinese exports to the US) |
 
 ## India
 
@@ -53,7 +53,7 @@ output (requests to them return 403).
   (until `china_customs` data loads, the `census` mirror stands in for
   the China side)
 - Cross-country comparisons → `imf` / `worldbank`
-- Company-specific → `market` and `earnings` subcommands (not SQL schemas)
+- Company-specific → `get_market_data` and `search_earnings` tools (not SQL schemas)
 
 HS trade schemas (`us_census_hs` in census, `china_customs`, `india_trade`)
 carry the same trade at multiple HS digit levels — filter to one level and

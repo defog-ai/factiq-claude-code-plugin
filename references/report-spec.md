@@ -223,12 +223,14 @@ is published on a 422. Server caps: 12 sections, 16 charts, 1,200 rows and
 
 ## Workflow
 
-1. Do the full data work first (context → discover → fetch `--full --out` →
-   compute locally). Every number in the report must come from data you
-   fetched this session.
+1. Do the full data work first with the MCP tools (`get_data_catalog` →
+   `search_datasets` / `describe_dataset` → `run_sql` / `get_series` → compute
+   locally). Every number in the report must come from data you fetched this
+   session. Results cap at 50 rows — aggregate in SQL to the granularity each
+   chart needs (a report chart wants ≤300 points anyway).
 2. Outline: 2–5 section claims, one or two charts each that prove the claim.
-3. Write a local Python script that reads the `--out` files and emits
-   `report.json` — don't hand-type data rows.
+3. Build `report.json` from the fetched values — emit it with the Write tool
+   or a small local Python script; don't hand-type data rows.
 4. `python3 scripts/factiq.py share-report --report report.json`
    (add `--question "..."` if the file is a bare report, and `--model` with
    your model name).

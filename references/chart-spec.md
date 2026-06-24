@@ -78,8 +78,8 @@ If the claim depends on a time window, keep the range in the title.
   for gaps, don't drop rows.
 - `sources[]`: `{name, program, url, type}` where `type` is
   `database | web | derived`. Pull `name`/`program` from the
-  `constituent_series` metadata the sql/series responses include. Use
-  `derived` for computed metrics (YoY, indexed, ratios).
+  `constituent_series` metadata the `run_sql` / `get_series` responses include.
+  Use `derived` for computed metrics (YoY, indexed, ratios).
 - `annotations[]`: `{date: "2020-04-01", text: "..."}` — use sparingly to
   mark events the narrative references.
 - `subtitle`, `description`, `notes[]`, `footnote` — optional supporting
@@ -150,12 +150,16 @@ Two rules the panel depends on:
 
 ## Workflow
 
-1. Fetch full data to disk: `... sql --full --out /tmp/data.json` (or
-   `series ... --full --out`).
-2. Write a small local Python script that reads the file, computes any
-   derived metrics, and emits the wide-format `data` array + full spec to
-   `chart.json`. Sort rows by the x value first — some endpoints return
-   data reverse-chronological, which would render a backwards x-axis.
+1. Fetch the data with the MCP tools — `run_sql` (a CASE-WHEN pivot for
+   several series) or `get_series` (one series). Results cap at 50 rows, so
+   aggregate to chart granularity in SQL (`GROUP BY date_trunc(...)`) or window
+   a series with `from_year` / `to_year`; a line chart wants a few hundred
+   points at most.
+2. Build the wide-format `data` array from the fetched values — compute any
+   derived metrics (YoY, indexing, ratios) yourself, and emit the full spec to
+   `chart.json` (write it with the Write tool, or a small local Python script).
+   Sort rows by the x value first — some series come back reverse-chronological,
+   which would render a backwards x-axis.
 3. Validate locally that every `series[].key` and `xField.key` exists in the
    `data` rows, and that the spec carries both `sources[]` and a `lineage`
    DAG (see above) — they are what the share page shows as the Data Source

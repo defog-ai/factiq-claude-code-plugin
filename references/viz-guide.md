@@ -27,10 +27,13 @@ stderr," not "minor warning."
 
 ## The workflow
 
-1. **Fetch full data to disk** with the existing CLI — never into your context:
-   ```bash
-   python3 scripts/factiq.py sql --schema bls --query "…" --full --out /tmp/jobs.json
-   ```
+1. **Fetch the data with the MCP tools, then save each result to disk.** Call
+   `run_sql` / `get_series`, then write the tool's result to a JSON file with
+   the Write tool — `build_viz` reads its data from files, not from your
+   context. Results cap at 50 rows, so aggregate in SQL (`GROUP BY
+   date_trunc(...)`) or window a series to exactly the rows the viz needs. Save
+   the whole tool result (it carries `columns` + `results`), e.g. to
+   `/tmp/jobs.json`.
 2. **Copy the shell and author the viz.** Start from `assets/viz-shell.html`
    (or write your own). Add any CDN `<script>` you need, then write the
    visualization. Keep the `__FACTIQ_DATA__` marker — that is where the data
@@ -92,20 +95,21 @@ After `assemble`, the page exposes one global:
 const DATA = JSON.parse(document.getElementById("factiq-data").textContent);
 ```
 
-`DATA[key]` is the **full factiq payload** for the file you passed as
-`--data key=file.json`, exactly as written by `factiq.py … --out`:
+`DATA[key]` is the **full FactIQ payload** for the file you passed as
+`--data key=file.json` — i.e. exactly the `run_sql` / `get_series` tool result
+you saved to that file:
 
-- SQL results: `DATA.key.results` is an array of **positional arrays** aligned
-  to `DATA.key.columns` (e.g. `["DC", 5.5, "2026-04-01"]`), *not* an array of
-  objects. Objectify them once at the top:
+- `run_sql` results: `DATA.key.results` is an array of **positional arrays**
+  aligned to `DATA.key.columns` (e.g. `["DC", 5.5, "2026-04-01"]`), *not* an
+  array of objects. Objectify them once at the top:
   ```js
   const cols = DATA.key.columns;
   const rows = DATA.key.results.map((r) =>
     Object.fromEntries(cols.map((c, i) => [c, r[i]]))
   );
   ```
-- `series` and `market` payloads keep their own shape — inspect the stub the
-  fetch printed (or `console.log(DATA.key)` once) before assuming a layout.
+- `get_series` and `get_market_data` payloads keep their own shape — eyeball
+  the tool result (or `console.log(DATA.key)` once) before assuming a layout.
 
 Sort by your x value in JS before plotting — some endpoints return data
 reverse-chronological, which renders a backwards axis. Use `null` for gaps;
