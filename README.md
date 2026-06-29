@@ -42,7 +42,7 @@ git clone git@github.com:defog-ai/factiq-claude-code-plugin.git ~/.claude/skills
 
 The skill auto-invokes the same way. As a plain skill the bundled `.mcp.json`
 is not loaded automatically — add the MCP server yourself with
-`claude mcp add --transport http factiq https://api.worlddb.ai/mcp`, then
+`claude mcp add --transport http factiq https://api.factiq.com/mcp`, then
 authorize it with `/mcp`.
 </details>
 
@@ -73,7 +73,7 @@ failures too.
 
 ## Configuration
 
-The MCP server defaults to `https://api.worlddb.ai/mcp`. For local development
+The MCP server defaults to `https://api.factiq.com/mcp`. For local development
 against a local backend, set `FACTIQ_MCP_URL=http://localhost:8000/mcp` before
 starting Claude Code (it expands in `.mcp.json`).
 

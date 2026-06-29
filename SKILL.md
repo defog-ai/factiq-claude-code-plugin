@@ -75,7 +75,7 @@ same FactIQ login: email, Google, or passkey). Nothing to copy or paste, and no
 separate key for publishing — the same connection authorizes `share_chart` /
 `share_report`.
 
-**Local development.** The MCP URL defaults to `https://api.worlddb.ai/mcp`;
+**Local development.** The MCP URL defaults to `https://api.factiq.com/mcp`;
 override it for a local backend by setting
 `FACTIQ_MCP_URL=http://localhost:8000/mcp` before Claude Code starts (it expands
 in `.mcp.json`).
