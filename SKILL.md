@@ -24,6 +24,17 @@ allowed-tools: >
   mcp__plugin_factiq_factiq__get_style_guides,
   mcp__plugin_factiq_factiq__share_chart,
   mcp__plugin_factiq_factiq__share_report,
+  mcp__factiq__get_data_catalog,
+  mcp__factiq__search_datasets,
+  mcp__factiq__describe_dataset,
+  mcp__factiq__search_series,
+  mcp__factiq__get_series,
+  mcp__factiq__run_sql,
+  mcp__factiq__get_market_data,
+  mcp__factiq__search_earnings,
+  mcp__factiq__get_style_guides,
+  mcp__factiq__share_chart,
+  mcp__factiq__share_report,
   Bash(python3:*), Bash(python:*), Read, Write
 ---
 
@@ -53,8 +64,8 @@ Three output modes:
 **Data in, output out:**
 
 - All discovery, fetching, **and publishing** go through the FactIQ **MCP
-  tools** (`mcp__plugin_factiq_factiq__*`). No codebase, database, or API key is
-  needed — Claude Code calls them directly over one authenticated connection.
+  tools** (`factiq MCP`). No codebase, database, or API key is
+  needed — the coding agent calls them directly over one authenticated connection.
 - The only local script is the bespoke-viz builder (it never touches the API):
 
   ```bash
@@ -67,22 +78,26 @@ Three output modes:
 ## Setup
 
 One connection covers everything: the FactIQ **MCP server** bundled with this
-plugin (`.mcp.json`), authorized over OAuth. On first use Claude Code runs
-FactIQ's browser-based **Connect** flow. If the `mcp__plugin_factiq_*` tools are
-missing or return an auth error, the connection isn't set up yet — tell the user
-to run **`/mcp`** in Claude Code, pick **factiq**, and complete the sign-in (the
-same FactIQ login: email, Google, or passkey). Nothing to copy or paste, and no
-separate key for publishing — the same connection authorizes `share_chart` /
-`share_report`.
+plugin (`.mcp.json`), authorized over OAuth. On first use the coding agent runs
+FactIQ's browser-based **Connect** flow. If the FactIQ tools are missing or
+return an auth error, the connection isn't set up yet — tell the user to
+authorize the MCP server:
+
+- **Claude Code**: run **`/mcp`**, pick **factiq**, and complete the sign-in.
+- **Codex**: run **`codex mcp login factiq`** and complete the sign-in.
+
+The same FactIQ login works everywhere (email, Google, or passkey). Nothing to
+copy or paste, and no separate key for publishing — the same connection
+authorizes `share_chart` / `share_report`.
 
 **Local development.** The MCP URL defaults to `https://api.factiq.com/mcp`;
 override it for a local backend by setting
-`FACTIQ_MCP_URL=http://localhost:8000/mcp` before Claude Code starts (it expands
-in `.mcp.json`).
+`FACTIQ_MCP_URL=http://localhost:8000/mcp` before the coding agent starts (it
+expands in `.mcp.json`).
 
 ## Tools
 
-All FactIQ tools are MCP tools (`mcp__plugin_factiq_factiq__*`).
+All FactIQ tools are MCP tools provided by the `factiq` MCP server.
 
 ### Data
 
@@ -249,9 +264,9 @@ to a JSON file before assembling.
 ## Errors and limits
 
 - **MCP tool unavailable / auth error** — the FactIQ MCP isn't connected. Tell
-  the user to run `/mcp`, pick **factiq**, and complete the Connect flow. The
-  same connection authorizes both the data tools and `share_chart` /
-  `share_report`, so this fixes publishing failures too.
+  the user to authorize it (Claude Code: `/mcp` → factiq; Codex:
+  `codex mcp login factiq`). The same connection authorizes both the data tools
+  and `share_chart` / `share_report`, so this fixes publishing failures too.
 - **429** — either the 1 request/second rate limit or the monthly tool-call
   quota (the error says when it resets). Note that publishing counts against the
   same monthly tool quota as the data tools. Don't burn calls re-fetching data
