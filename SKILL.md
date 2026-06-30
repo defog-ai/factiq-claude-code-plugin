@@ -35,7 +35,7 @@ allowed-tools: >
   mcp__factiq__get_style_guides,
   mcp__factiq__share_chart,
   mcp__factiq__share_report,
-  Bash(python3:*), Bash(python:*), Read, Write
+  Bash(python3:*), Bash(python:*), Read, Write, Agent
 ---
 
 # FactIQ Data Tools
@@ -152,6 +152,11 @@ viz (see **Bespoke local visualizations**). Local-only; never calls the API.
    prefer short stems like `rare`, not `rare earth`) or exploration SQL
    (`run_sql` with `explore=true`) on the `series` and `dimensions` tables.
    For multi-source stories, actually fetch data from 2+ schemas.
+
+   For report-mode questions covering multiple topics, companies, or data
+   sources, consider decomposing the research into parallel subagents — see
+   **Subagent orchestration** below.
+
 3. **Fetch in batches.** Once you know which series you need, issue the fetch
    calls together (multiple tool calls in one turn). Use `get_series` for 1–2
    known ids; `run_sql` with a CASE-WHEN pivot for 3+ series or joins. Keep
@@ -171,14 +176,146 @@ viz (see **Bespoke local visualizations**). Local-only; never calls the API.
    `build_viz.py render` to screenshot and iterate, then give the user the local
    file path (see **Bespoke local visualizations**).
 
+## Subagent orchestration
+
+For report-mode questions that span multiple distinct topics, companies, or data
+sources, decompose the work into parallel subagents. This does two things:
+each research thread gets a full, focused context instead of competing for
+attention in one serial pass, and the report-assembly step gets the spec
+loaded directly in its prompt so it never guesses at field names.
+
+**Do NOT use subagents** for quick-chart mode or single-topic questions — the
+overhead is not worth it. The decision point is right after step 2 of the
+orchestration workflow: once you have done the catalog lookup and initial
+dataset discovery, you know whether the question decomposes into 2+ independent
+research threads. If it does, fan out.
+
+### Research subagents
+
+Spawn one Agent call per research thread. Each agent inherits the skill's
+FactIQ MCP tools, so it can discover, fetch, and compute on its own. Give each
+agent a tightly scoped prompt and tell it to return structured findings — not
+prose, not a published artifact.
+
+Agent prompt template (adapt the specifics per thread):
+
+```
+You are a FactIQ research agent. Your job is to answer ONE sub-question and
+return structured findings. Do NOT call share_chart or share_report — just
+research and return data.
+
+Sub-question: {sub_question}
+
+Relevant schemas/datasets (from the parent's catalog step): {hints}
+
+Steps:
+1. search_datasets / describe_dataset / search_series to find the right series.
+2. Fetch data with get_series or run_sql. Aggregate in SQL to stay under the
+   50-row cap.
+3. Compute derived metrics (YoY, ratios, indices) yourself.
+4. Return your findings as a structured block:
+
+FINDINGS:
+- sub_question: (echo it back)
+- series_used: [{schema, series_id, title}, ...]
+- sql_queries: [the exact SQL you ran, formatted multi-line]
+- data: [{columns: [...], rows: [...]}, ...] — the actual fetched/computed values
+- key_insights: [1-3 sentences stating what the data shows, with numbers]
+- chart_suggestion: {chart_type, title, x_column, y_columns, units}
+```
+
+Launch the agents in parallel — multiple Agent tool calls in one turn:
+
+```
+Agent(prompt="<research prompt for thread 1>", label="research-supply-chain")
+Agent(prompt="<research prompt for thread 2>", label="research-pricing")
+Agent(prompt="<research prompt for thread 3>", label="research-demand")
+```
+
+Each agent runs independently and returns its findings block. Wait for all of
+them before proceeding to assembly.
+
+### Report assembler subagent
+
+After all research is complete, spawn a single report-assembler agent. Its
+prompt must contain two things: (1) the full content of `references/report-spec.md`
+so the spec is in context, not behind a file read that might be skipped, and
+(2) all the research findings from the previous step.
+
+Before spawning the assembler, read `references/report-spec.md` yourself with
+the Read tool. Then embed its entire content in the assembler's prompt.
+
+Agent prompt template:
+
+```
+You are a FactIQ report assembler. Build a complete report object and publish
+it with share_report. Do NOT do any data discovery or fetching — all data is
+provided below.
+
+USER QUESTION: {original_question}
+
+=== REPORT SPEC (from references/report-spec.md) ===
+{paste the full content of references/report-spec.md here}
+=== END REPORT SPEC ===
+
+=== RESEARCH FINDINGS ===
+{paste all findings blocks from the research agents, labeled by thread}
+=== END RESEARCH FINDINGS ===
+
+Instructions:
+1. Design 2-5 sections. Each section makes one claim its chart(s) prove.
+2. Chart titles state the finding with numbers, not the topic.
+3. Narratives are plain text — no markdown formatting.
+4. Every chart must have columns, data (from the findings above), x_column,
+   y_columns (for line/bar), sources, and lineage.
+5. Lineage code must be formatted multi-line SQL/Python with real newlines.
+   series_refs must list every series the step used.
+6. Call share_report with question, report, and model. Return the share_url.
+```
+
+Launch the assembler:
+
+```
+Agent(prompt="<assembler prompt with spec + findings>", label="report-assembler")
+```
+
+The assembler has the full spec in context, so it builds the report object
+correctly on the first attempt. It calls `share_report` itself and returns
+the `share_url`, which you relay to the user.
+
+### Example decomposition
+
+Question: "How is the US EV market evolving — supply chain, pricing, and demand?"
+
+After step 2 (catalog + discovery), you identify three independent threads:
+
+| Thread | Sub-question | Schemas |
+|---|---|---|
+| Supply chain | What does US EV battery/component production look like? | `census`, `bea` |
+| Pricing | How have EV prices and average selling prices changed? | `bls` (CPI), market data |
+| Consumer demand | What are EV sales and registration trends? | `bts`, `bea`, market data |
+
+Spawn three research agents in parallel. When all return, spawn one assembler
+agent with the spec and all three findings blocks. The assembler builds a
+3-section report (one per thread), calls `share_report`, and returns the URL.
+
+### When NOT to use subagents
+
+- Quick-chart mode (single metric, single chart).
+- Single-topic questions even in report mode ("How has US unemployment evolved
+  since 2020?" — one thread, no decomposition needed).
+- Bespoke local visualizations — the build_viz loop is inherently iterative and
+  does not benefit from fan-out.
+
+For these cases, do the research and publishing in the main context as usual.
+
 ## Detailed reports
 
 A report is a public, fully rendered FactIQ research page: a bulleted summary
 up top, then sections that pair narrative with charts, then methodology notes.
 You author the whole thing — every chart's data rows, every narrative claim —
 from data you actually fetched in this session. The JSON format, per-chart
-fields, and a worked example live in `references/report-spec.md`. Read that
-file before writing the report.
+fields, and a worked example live in `references/report-spec.md`. For reliable publishing, use a dedicated report-assembler subagent with the spec loaded in its prompt — see **Subagent orchestration**.
 
 Ground rules:
 

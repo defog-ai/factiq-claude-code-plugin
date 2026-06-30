@@ -25,7 +25,7 @@ allowed-tools: >
   mcp__factiq__get_style_guides,
   mcp__factiq__share_chart,
   mcp__factiq__share_report,
-  Bash(python3:*), Bash(python:*), Read, Write, AskUserQuestion
+  Bash(python3:*), Bash(python:*), Read, Write, AskUserQuestion, Agent
 ---
 
 Answer this question with real data from FactIQ:
@@ -66,3 +66,8 @@ compute, all via the MCP tools) and finish per the mode:
 - **Detailed report** → follow SKILL.md's **Detailed reports** section and
   `references/report-spec.md`, publish with the `share_report` tool, and return
   the share URL plus the report's key findings.
+
+For report-mode questions that span multiple topics, companies, or data sources,
+decompose the research into parallel subagents after initial discovery — one
+agent per research thread. Then synthesize and hand off to a report-assembler
+subagent. See SKILL.md's **Subagent orchestration** section for the pattern.
