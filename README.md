@@ -1,21 +1,22 @@
-# FactIQ Claude Code Plugin
+# FactIQ Plugin
 
-A [Claude Code plugin](https://code.claude.com/docs/en/plugins) that lets
-Claude answer economic and financial data questions using FactIQ's data —
-catalog search, read-only SQL, series lookup, market data, earnings-call
-search — and publish the result as a shareable FactIQ chart or report, or as a
-bespoke local HTML visualization. Claude orchestrates the whole analysis
-itself; no codebase or database access is required, only a FactIQ account.
+A plugin for [Claude Code](https://code.claude.com/docs/en/plugins) and
+[Codex](https://github.com/openai/codex) that lets your coding agent answer
+economic and financial data questions using FactIQ's data — catalog search,
+read-only SQL, series lookup, market data, earnings-call search — and publish
+the result as a shareable FactIQ chart or report, or as a bespoke local HTML
+visualization. The agent orchestrates the whole analysis itself; no codebase or
+database access is required, only a FactIQ account.
 
 Everything runs through the **FactIQ MCP server** (bundled in `.mcp.json`),
-which Claude Code talks to natively over a single OAuth connection — discovery,
-fetching, and publishing alike. There is no API key to manage. The one bundled
-script, `build_viz.py`, is local-only (it builds HTML visualizations and never
-touches the network).
+which both Claude Code and Codex talk to natively over a single OAuth
+connection — discovery, fetching, and publishing alike. There is no API key to
+manage. The one bundled script, `build_viz.py`, is local-only (it builds HTML
+visualizations and never touches the network).
 
 ## Install
 
-Inside Claude Code:
+### Claude Code
 
 ```
 /plugin marketplace add defog-ai/factiq-claude-code-plugin
@@ -30,38 +31,66 @@ data questions), the bundled FactIQ MCP server, and the `/factiq:ask` command:
 | `/factiq:ask <question>` | Run a full analysis and get a shareable chart or report |
 
 Then run **`/mcp`** once, pick **factiq**, and complete the browser-based
-Connect flow to authorize the tools (see below). That single connection covers
-both fetching data and publishing.
+Connect flow to authorize the tools (see below).
 
-<details>
-<summary>Alternative: install as a plain skill (no slash command / no MCP)</summary>
+### Codex
 
 ```bash
-git clone git@github.com:defog-ai/factiq-claude-code-plugin.git ~/.claude/skills/factiq
+git clone https://github.com/defog-ai/factiq-claude-code-plugin.git ~/.codex/plugins/factiq
 ```
 
-The skill auto-invokes the same way. As a plain skill the bundled `.mcp.json`
-is not loaded automatically — add the MCP server yourself with
-`claude mcp add --transport http factiq https://api.factiq.com/mcp`, then
-authorize it with `/mcp`.
+Then authorize the MCP server:
+
+```bash
+codex mcp login factiq
+```
+
+Complete the browser sign-in (the same FactIQ login: email, Google, or
+passkey). The skill auto-invokes for economic/financial data questions.
+
+<details>
+<summary>Alternative: install as a standalone MCP server (no plugin)</summary>
+
+Add the MCP server directly to your Codex config (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.factiq]
+url = "https://api.factiq.com/mcp"
+```
+
+Then `codex mcp login factiq`. The skill won't auto-invoke without the plugin,
+but the MCP tools are available for manual use.
+
+For Claude Code without the plugin:
+
+```bash
+claude mcp add --transport http factiq https://api.factiq.com/mcp
+```
+
+Then authorize with `/mcp`.
 </details>
 
 ## Authentication
 
-One credential, no keys. The tools live on the FactIQ MCP server; Claude Code
-authorizes them over OAuth. Run **`/mcp`**, pick **factiq**, and complete the
-browser sign-in (the same FactIQ login: email, Google, or passkey). Claude Code
-stores and refreshes the token; there is nothing to paste. If the
-`mcp__plugin_factiq_*` tools ever return an auth error, re-run `/mcp` to
-reconnect — the same connection authorizes publishing, so this fixes publish
-failures too.
+One credential, no keys. The tools live on the FactIQ MCP server, authorized
+over OAuth:
+
+- **Claude Code**: run **`/mcp`**, pick **factiq**, and complete the browser
+  sign-in.
+- **Codex**: run **`codex mcp login factiq`** and complete the browser sign-in.
+
+The same FactIQ login works everywhere (email, Google, or passkey). The agent
+stores and refreshes the token; there is nothing to paste. If the FactIQ tools
+ever return an auth error, re-authorize to reconnect — the same connection
+covers both data fetching and publishing.
 
 ## Contents
 
 - `.mcp.json` — declares the bundled FactIQ MCP server (Streamable HTTP,
-  OAuth)
-- `SKILL.md` — the skill definition Claude loads (setup, workflow, limits)
-- `commands/ask.md` — the `/factiq:ask` slash command
+  OAuth). Read by both Claude Code and Codex plugin loaders.
+- `SKILL.md` — the skill definition both agents load (setup, workflow, limits)
+- `AGENTS.md` — Codex project-level instructions (points to SKILL.md)
+- `commands/ask.md` — the `/factiq:ask` slash command (Claude Code)
 - `scripts/build_viz.py` — local-only tool to assemble fetched data into a
   self-contained HTML viz and screenshot it headless for iteration. `assemble`
   is stdlib-only; `render` installs Playwright + Chromium into
@@ -69,18 +98,19 @@ failures too.
 - `assets/viz-shell.html` — starting-point shell for bespoke visualizations
 - `references/` — SQL idioms, ChartSpec/report formats, the bespoke-viz guide,
   and dataset schema overview
-- `.claude-plugin/` — plugin + marketplace manifests
+- `.claude-plugin/` — Claude Code plugin + marketplace manifests
+- `.codex-plugin/` — Codex plugin manifest
 
 ## Configuration
 
 The MCP server defaults to `https://api.factiq.com/mcp`. For local development
 against a local backend, set `FACTIQ_MCP_URL=http://localhost:8000/mcp` before
-starting Claude Code (it expands in `.mcp.json`).
+starting the coding agent (it expands in `.mcp.json`).
 
 ## Security
 
 No secrets belong in this repo, and the plugin holds none — all access goes
-through the MCP server's OAuth flow, so Claude Code holds the token and nothing
-is written here. The backend enforces a 1 request/second rate limit and a
-monthly tool-call quota per plan (publishing counts against the same quota as
+through the MCP server's OAuth flow, so the coding agent holds the token and
+nothing is written here. The backend enforces a 1 request/second rate limit and
+a monthly tool-call quota per plan (publishing counts against the same quota as
 the data tools).

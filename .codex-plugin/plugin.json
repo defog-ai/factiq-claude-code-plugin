@@ -4,5 +4,7 @@
   "version": "0.8.0",
   "author": {
     "name": "Defog"
-  }
+  },
+  "skills": "../",
+  "mcpServers": "../.mcp.json"
 }
