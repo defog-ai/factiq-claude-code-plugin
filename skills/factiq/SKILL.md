@@ -7,11 +7,12 @@ description: >
   customs, India MOSPI/RBI/trade, Singapore, IMF, World Bank), stock quotes
   and fundamentals, commodities/forex, and earnings-call intelligence. Use
   when the user asks about unemployment, inflation, GDP, trade flows, energy,
-  wages, markets, or wants a shareable economic chart, a full multi-section
-  research report, or a bespoke custom visualization or dashboard saved as a
-  local HTML file. You orchestrate the whole analysis yourself — discover
-  series, query SQL, compute, then publish a single chart or a fully formed
-  report as a share link, or build a custom local HTML visualization.
+  wages, markets, or wants a shareable economic chart, a terminal chart preview,
+  a full multi-section research report, or a bespoke custom visualization or
+  dashboard saved as a local HTML file. You orchestrate the whole analysis
+  yourself — discover series, query SQL, compute, then publish a single chart or
+  a fully formed report as a share link, render a terminal chart, or build a
+  custom local HTML visualization.
 allowed-tools: >
   mcp__plugin_factiq_factiq__get_data_catalog,
   mcp__plugin_factiq_factiq__search_datasets,
@@ -47,10 +48,14 @@ lookup, market data, earnings search), then publish the result (`share_chart`,
 the data with the MCP tools, do the math with your own tokens, author the
 output, and publish it with a tool call.
 
-Three output modes:
+Four output modes:
 
 - **Quick chart** (`share_chart` tool) — one focused chart published to FactIQ
   as a share link. Default for questions about a single metric or comparison.
+- **Terminal chart** (`term_chart.py`) — an inline ANSI/ASCII preview rendered
+  from the same ChartSpec you would publish. Use when the user explicitly asks
+  for terminal, ASCII, inline, or local text output, or when you want to show a
+  quick preview before/alongside a share link. See **Terminal charts** below.
 - **Detailed report** (`share_report` tool) — summary + sections of narrative
   and charts + methodology, rendered on FactIQ's share-report page exactly like
   the in-house agent's reports. For broad or analytical questions. See
@@ -66,9 +71,10 @@ Three output modes:
 - All discovery, fetching, **and publishing** go through the FactIQ **MCP
   tools** (`factiq MCP`). No codebase, database, or API key is
   needed — the coding agent calls them directly over one authenticated connection.
-- The only local script is the bespoke-viz builder (it never touches the API):
+- The local scripts never touch the API:
 
   ```bash
+  python3 scripts/term_chart.py render ... # terminal ChartSpec preview
   python3 scripts/build_viz.py  ...   # path relative to this skill dir
   ```
 
@@ -132,6 +138,46 @@ context (or with the Write tool / local Python for large data arrays) and hand
 it to the tool. A validation failure comes back as a tool error naming the bad
 field; nothing is published until it validates.
 
+### Terminal charts — `term_chart.py`
+
+`term_chart.py render` prints a local ANSI/ASCII preview from a normal FactIQ
+ChartSpec. It never calls FactIQ; build the ChartSpec from data you already
+fetched, save it to JSON, then render it:
+
+```bash
+python3 scripts/term_chart.py render --spec /tmp/factiq-chart.json --width 80 --charset ascii --color auto
+```
+
+Use terminal charts when the user asks for terminal output, ASCII charts,
+inline/local text output, or a quick preview. Do not replace `share_chart` by
+default: for normal quick-chart answers, publish the share link; if a preview
+helps, render it from the same ChartSpec before or after publishing.
+
+Supported terminal renderers:
+
+| Renderer | Use when |
+|---|---|
+| `bar` | Categorical comparisons and short ranked lists |
+| `sparkline` | Compact time-series trends, especially 3+ series |
+| `line` | Small one- or two-series time charts |
+| `table` | Fallback for unsupported chart types or dense data |
+
+Useful options:
+
+| Option | Purpose |
+|---|---|
+| `--type auto\|bar\|sparkline\|line\|table` | Pick the terminal renderer; `auto` maps from `ChartSpec.type` |
+| `--width 80` / `--width auto` | Fixed width by default; `auto` reads the terminal size |
+| `--height N` | Line-chart plot height |
+| `--charset ascii\|unicode-block` | Strict ASCII or denser Unicode block glyphs |
+| `--color auto\|always\|never` | ANSI color control; `auto` respects TTY, `NO_COLOR`, and `TERM=dumb` |
+| `--out FILE` | Also save the rendered text |
+
+Because agents often capture command output instead of streaming it directly to
+the user's terminal, use `--charset ascii --color never` when you plan to paste
+the chart into the final answer. Use ANSI color for real terminal stdout or
+saved `.ansi` previews.
+
 ### Local viz — `build_viz.py`
 
 `build_viz.py save … / assemble … / render …` saves raw tool results to disk
@@ -168,14 +214,17 @@ local visualizations**). Local-only; never calls the API.
    code interpreter in this loop.
 5. **Recent market data.** The DB lags for very recent market/price data — use
    `get_market_data` for current quotes, commodities, and FX.
-6. **Publish or build.** Quick-chart mode: build a ChartSpec object (see
-   `references/chart-spec.md`) with wide-format data rows and call
-   `share_chart`; return the `share_url`. Report mode: build a report object
-   (see `references/report-spec.md` and **Detailed reports** below) and call
-   `share_report`; return the `share_url`. Bespoke-viz mode: save each fetched
-   result to a JSON file with `build_viz.py save` (no retyping), author an HTML
-   file, `build_viz.py assemble`, `build_viz.py render` to screenshot and
-   iterate, then give the user the local file path (see **Bespoke local
+6. **Publish, render, or build.** Quick-chart mode: build a ChartSpec object
+   (see `references/chart-spec.md`) with wide-format data rows and call
+   `share_chart`; return the `share_url`. Terminal-chart mode: build the same
+   ChartSpec, save it to JSON, run `term_chart.py render`, and return the
+   terminal output (plus a share link if the user also wants one). Report mode:
+   build a report object (see `references/report-spec.md` and **Detailed
+   reports** below) and call `share_report`; return the `share_url`.
+   Bespoke-viz mode: save each fetched result to a JSON file with
+   `build_viz.py save` (no retyping), author an HTML file,
+   `build_viz.py assemble`, `build_viz.py render` to screenshot and iterate,
+   then give the user the local file path (see **Bespoke local
    visualizations**).
 
 ## Subagent orchestration

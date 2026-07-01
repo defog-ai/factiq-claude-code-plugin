@@ -1,5 +1,5 @@
 ---
-description: Answer a data question with FactIQ — a quick chart or a full report
+description: Answer a data question with FactIQ — a quick chart, terminal chart, or full report
 argument-hint: "<question, e.g. How has US unemployment changed since 2019?>"
 disable-model-invocation: true
 allowed-tools: >
@@ -45,6 +45,9 @@ Codex: `codex mcp login factiq`), then retry.
 - **Quick chart** — one focused chart plus a short narrative. Right when the
   question names a single metric, series, or comparison: "How has X
   changed?", "X vs Y", "What is the current Z?".
+- **Terminal chart** — an ANSI/ASCII preview rendered from the same ChartSpec
+  used by quick charts. Right when the user asks for terminal, ASCII, inline,
+  local text output, or a quick preview.
 - **Detailed report** — a multi-section shareable report (summary, 2–5
   sections of narrative + charts, methodology notes). Right when the
   question is broad or analytical: "the state of the US labor market",
@@ -63,6 +66,10 @@ compute, all via the MCP tools) and finish per the mode:
 - **Quick chart** → build a ChartSpec (`references/chart-spec.md`), publish
   with the `share_chart` tool, and return the share URL plus a short narrative
   of what the data shows.
+- **Terminal chart** → build a ChartSpec (`references/chart-spec.md`), save it
+  to JSON, run `python3 scripts/term_chart.py render --spec <file> --charset ascii --color never`,
+  and return the rendered output plus a short narrative. Publish with
+  `share_chart` too only if the user also asked for a share link.
 - **Detailed report** → follow SKILL.md's **Detailed reports** section and
   `references/report-spec.md`, publish with the `share_report` tool, and return
   the share URL plus the report's key findings.
