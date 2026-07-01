@@ -5,6 +5,33 @@
   "author": {
     "name": "Defog"
   },
-  "skills": "../",
-  "mcpServers": "../.mcp.json"
+  "homepage": "https://github.com/defog-ai/factiq-plugin",
+  "repository": "https://github.com/defog-ai/factiq-plugin",
+  "keywords": [
+    "factiq",
+    "economic-data",
+    "financial-data",
+    "market-data",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "FactIQ",
+    "shortDescription": "Economic and financial data analysis",
+    "longDescription": "Use FactIQ to answer economic and financial data questions with catalog search, read-only SQL, market data, earnings-call search, shareable charts, reports, and bespoke local HTML visualizations.",
+    "developerName": "Defog",
+    "category": "Finance",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Chart inflation and unemployment trends",
+      "Compare GDP growth across countries",
+      "Search recent earnings-call themes"
+    ],
+    "brandColor": "#2563EB"
+  }
 }
