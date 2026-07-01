@@ -22,7 +22,12 @@ touch the network.
 ```
 /plugin marketplace add defog-ai/factiq-plugin
 /plugin install factiq@factiq
+/reload-plugins
 ```
+
+Run **`/reload-plugins`** after installing so Claude Code picks up the new
+skill, MCP server, and command in the current session (otherwise they only
+appear the next time you start Claude Code).
 
 This adds the skill (Claude invokes it automatically for economic/financial
 data questions), the bundled FactIQ MCP server, and the `/factiq:ask` command:
@@ -31,8 +36,13 @@ data questions), the bundled FactIQ MCP server, and the `/factiq:ask` command:
 |---|---|
 | `/factiq:ask <question>` | Run a full analysis and get a shareable chart, terminal chart, or report |
 
-Then run **`/mcp`** once, pick **factiq**, and complete the browser-based
-Connect flow to authorize the tools (see below).
+Finally, authenticate the MCP server:
+
+1. Run **`/mcp`**.
+2. Select **factiq** from the list of servers.
+3. Choose **Authenticate** (or **Connect**) to open the browser sign-in.
+4. Complete the FactIQ login (email, Google, or passkey) and return to Claude
+   Code — the FactIQ tools are now authorized.
 
 #### Enable auto-updates
 
