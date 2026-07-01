@@ -111,9 +111,10 @@ covers both data fetching and publishing.
 
 ## Configuration
 
-The MCP server defaults to `https://api.factiq.com/mcp`. For local development
-against a local backend, set `FACTIQ_MCP_URL=http://localhost:8000/mcp` before
-starting the coding agent (it expands in `.mcp.json`).
+The bundled MCP server points at `https://api.factiq.com/mcp`. For local
+development against a local backend, edit `.mcp.json` in your development
+checkout or configure a standalone `factiq` MCP server in Codex or Claude Code
+that points at the local URL.
 
 ## Security
 

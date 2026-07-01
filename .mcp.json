@@ -2,7 +2,7 @@
   "mcpServers": {
     "factiq": {
       "type": "http",
-      "url": "${FACTIQ_MCP_URL:-https://api.factiq.com/mcp}"
+      "url": "https://api.factiq.com/mcp"
     }
   }
 }
