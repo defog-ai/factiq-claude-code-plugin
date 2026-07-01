@@ -15,6 +15,7 @@ import math
 import os
 import shutil
 import sys
+import textwrap
 from datetime import datetime
 from typing import Any
 
@@ -188,7 +189,8 @@ def chart_data(spec: dict[str, Any]) -> tuple[list[dict[str, Any]], str, list[di
 
 def header(spec: dict[str, Any], width: int, colors: bool) -> list[str]:
     title = str(spec.get("title") or "FactIQ chart")
-    return [style(ellipsize(title, width), colors, ANSI_BOLD), ""]
+    title_lines = textwrap.wrap(title, width=max(1, width)) or [""]
+    return [*(style(line, colors, ANSI_BOLD) for line in title_lines), ""]
 
 
 def choose_type(spec: dict[str, Any], rows: list[dict[str, Any]], series: list[dict[str, Any]]) -> str:

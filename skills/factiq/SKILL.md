@@ -139,8 +139,10 @@ python3 scripts/term_chart.py report --report /tmp/factiq-report.json --width 80
 ```
 
 Any time you create a shared chart or shared report, return both the share link
-and the terminal preview. Use terminal-only output only when the user explicitly
-asks for no share link.
+and the terminal preview. After `term_chart.py` renders, paste the preview
+verbatim into your reply inside a triple-backtick code block; leaving it only in
+the tool result hides it behind a collapsed block in Claude Code. Use
+terminal-only output only when the user explicitly asks for no share link.
 
 Supported terminal renderers:
 
@@ -164,9 +166,9 @@ Useful options:
 | `--out FILE` | Also save the rendered text |
 
 Because agents often capture command output instead of streaming it directly to
-the user's terminal, use `--charset ascii --color never` when you plan to paste
-the chart into the final answer. Use ANSI color for real terminal stdout or
-saved `.ansi` previews.
+the user's terminal, use `--charset ascii --color never` for previews you paste
+into the final answer. Use ANSI color for real terminal stdout or saved `.ansi`
+previews.
 
 ### Local viz — `build_viz.py`
 
@@ -206,16 +208,17 @@ local visualizations**). Local-only; never calls the API.
    `get_market_data` for current quotes, commodities, and FX.
 6. **Publish, render, or build.** Quick-chart mode: build a ChartSpec object
    (see `references/chart-spec.md`) with wide-format data rows, save it to JSON,
-   call `share_chart`, then run `term_chart.py render`; return both the
-   `share_url` and terminal preview. Terminal-chart-only mode: build the same
-   ChartSpec, save it to JSON, run `term_chart.py render`, and return the
-   terminal output without publishing only if the user explicitly requested no
-   share link. Report mode: build a report object (see
+   call `share_chart`, then run `term_chart.py render`; return the `share_url`
+   and paste the terminal preview into your reply inside a triple-backtick code
+   block. Terminal-chart-only mode: build the same ChartSpec, save it to JSON,
+   run `term_chart.py render`, and paste the terminal output into your reply
+   without publishing only if the user explicitly requested no share link.
+   Report mode: build a report object (see
    `references/report-spec.md` and **Detailed reports** below), save it to JSON,
-   call `share_report`, then run `term_chart.py report`; return both the
-   `share_url` and terminal previews. If a publish validation error occurs, fix
-   and republish before rendering the final terminal preview from the corrected
-   object.
+   call `share_report`, then run `term_chart.py report`; return the `share_url`
+   and paste the terminal previews into your reply inside a triple-backtick code
+   block. If a publish validation error occurs, fix and republish before
+   rendering the final terminal preview from the corrected object.
    Bespoke-viz mode: save each fetched result to a JSON file with
    `build_viz.py save` (no retyping), author an HTML file,
    `build_viz.py assemble`, `build_viz.py render` to screenshot and iterate,
@@ -327,7 +330,8 @@ Instructions:
 6. Call share_report with question, report, and model. After it succeeds, save
    the full share_report argument object to JSON and run:
    `python3 {skill_dir}/scripts/term_chart.py report --report <json-file> --charset ascii --color never`
-7. Return the share_url and terminal previews.
+7. Return the share_url and paste the terminal previews into the reply inside a
+   triple-backtick code block.
 ```
 
 Launch the assembler:
@@ -338,7 +342,8 @@ Agent(prompt="<assembler prompt with spec + findings>", label="report-assembler"
 
 The assembler has the full spec in context, so it builds the report object
 correctly on the first attempt. It calls `share_report` itself and returns
-the `share_url` plus terminal previews, which you relay to the user.
+the `share_url` plus terminal previews, which you relay to the user by pasting
+the previews inside a triple-backtick code block.
 
 ### Example decomposition
 
@@ -396,7 +401,8 @@ Ground rules:
 The `share_report` tool validates the report against FactIQ's real chart
 schemas server-side, stores it as a completed public run, and returns the
 `share_url`. After it succeeds, render the report object with
-`term_chart.py report` so the user gets both the link and terminal previews.
+`term_chart.py report`, then paste the previews into your reply so the user gets
+both the link and visible terminal previews.
 The report appears in your FactIQ history and can be forked by anyone who opens
 the share link.
 
