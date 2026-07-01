@@ -109,8 +109,7 @@ covers both data fetching and publishing.
   `codex plugin marketplace add defog-ai/factiq-plugin`
 - `scripts/term_chart.py` — stdlib-only renderer that prints ANSI/ASCII
   terminal previews from normal FactIQ ChartSpec JSON and `share_report` report
-  objects. It supports bar, sparkline, simple line, and table fallback
-  renderers.
+  objects. It supports bar, simple line, and table fallback renderers.
 - `scripts/build_viz.py` — local-only tool to assemble fetched data into a
   self-contained HTML viz and screenshot it headless for iteration. `save`
   copies a tool result's raw JSON out of the harness transcript to disk (no

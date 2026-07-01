@@ -154,15 +154,14 @@ Supported terminal renderers:
 | Renderer | Use when |
 |---|---|
 | `bar` | Categorical comparisons and short ranked lists |
-| `sparkline` | Compact time-series trends, especially 3+ series |
-| `line` | Small one- or two-series time charts |
+| `line` | Time-series trends (one or more series) |
 | `table` | Fallback for unsupported chart types or dense data |
 
 Useful options:
 
 | Option | Purpose |
 |---|---|
-| `--type auto\|bar\|sparkline\|line\|table` | Pick the terminal renderer; `auto` maps from `ChartSpec.type` |
+| `--type auto\|bar\|line\|table` | Pick the terminal renderer; `auto` maps from `ChartSpec.type` |
 | `--width 80` / `--width auto` | Fixed width by default; `auto` reads the terminal size |
 | `--height N` | Line-chart plot height |
 | `--charset ascii\|unicode-block` | Strict ASCII or denser Unicode block glyphs |
