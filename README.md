@@ -92,9 +92,11 @@ covers both data fetching and publishing.
 - `AGENTS.md` — Codex project-level instructions (points to SKILL.md)
 - `commands/ask.md` — the `/factiq:ask` slash command (Claude Code)
 - `scripts/build_viz.py` — local-only tool to assemble fetched data into a
-  self-contained HTML viz and screenshot it headless for iteration. `assemble`
-  is stdlib-only; `render` installs Playwright + Chromium into
-  `~/.factiq/viz-venv` on first use (no effect on your system Python)
+  self-contained HTML viz and screenshot it headless for iteration. `save`
+  copies a tool result's raw JSON out of the harness transcript to disk (no
+  retyping) and `assemble` are stdlib-only; `render` installs Playwright +
+  Chromium into `~/.factiq/viz-venv` on first use (no effect on your system
+  Python)
 - `assets/viz-shell.html` — starting-point shell for bespoke visualizations
 - `references/` — SQL idioms, ChartSpec/report formats, the bespoke-viz guide,
   and dataset schema overview
