@@ -20,7 +20,7 @@ touch the network.
 ### Claude Code
 
 ```
-/plugin marketplace add defog-ai/factiq-claude-code-plugin
+/plugin marketplace add defog-ai/factiq-plugin
 /plugin install factiq@factiq
 ```
 
