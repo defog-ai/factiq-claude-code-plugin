@@ -239,3 +239,34 @@ summary.
 6. Return the `share_url`, paste the terminal previews into your reply inside a
    triple-backtick code block, and include the report's key findings. Do not
    leave the previews only in the tool result.
+
+## Specialized report patterns
+
+- **Bilateral merchandise trade.** For questions like "latest trend in trade
+  between A and B", read `bilateral-trade.md` and default to a compact report,
+  not a single latest-month chart. Include latest month, same-month YoY, YTD
+  versus prior YTD, prior full-year context, trade balance, product-driver
+  tables for both directions, policy context from current official sources, and
+  mirror-statistics caveats.
+- **Bilateral economic policy.** For broad prompts like "compare A and B trade
+  policy" or "discuss A and B's joint economic policy", read
+  `bilateral-economic-policy.md` before authoring the report. Define the full
+  concept, cover the relevant dimensions, and do not let merchandise trade
+  stand in for services, FDI/investment, tariff and non-tariff barriers,
+  bilateral talks, sector strategy, or third-country policy pressure.
+- **Monetary policy.** For questions about central-bank policy stance,
+  monetary policy over time, implementation tools, OMO, reserve liquidity,
+  transmission, FX intervention, or sterilization, read `monetary-policy.md`
+  before authoring the report. Do not stop at policy rates, inflation, and
+  unemployment: include administered rates such as IORB where relevant, current
+  open market operations or data gaps, balance-sheet and reserves context,
+  communication, transmission channels, FX intervention checks, and clear
+  sterilized/unsterilized intervention caveats.
+- **Fiscal-policy revenue.** For questions about tax revenue, non-tax revenue,
+  government receipts, revenue by income bracket or corporate size, or whether
+  a government's tax/fiscal policy matched campaign promises, read
+  `fiscal-policy-revenue.md` before authoring the report. Do not stop at an
+  aggregate tax-versus-non-tax split: include major tax sources,
+  distributional tax detail where official data exist, named non-tax
+  components, a sourced policy-promise alignment note when relevant, and clear
+  timing/data-gap caveats.

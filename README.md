@@ -118,8 +118,9 @@ covers both data fetching and publishing.
   Chromium into `~/.factiq/viz-venv` on first use (no effect on your system
   Python)
 - `assets/viz-shell.html` — starting-point shell for bespoke visualizations
-- `references/` — SQL idioms, ChartSpec/report formats, the bespoke-viz guide,
-  and dataset schema overview
+- `references/` — SQL idioms, ChartSpec/report formats, monetary policy,
+  bilateral trade, bilateral economic-policy, and fiscal-policy revenue report
+  patterns, the bespoke-viz guide, and dataset schema overview
 - `.claude-plugin/` — Claude Code plugin + marketplace manifests
 - `.codex-plugin/` — Codex plugin manifest
 
