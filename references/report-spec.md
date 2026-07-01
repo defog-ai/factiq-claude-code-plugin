@@ -71,6 +71,14 @@ ascending — some endpoints return reverse-chronological rows, which would
 render a backwards x-axis. Use `null` for gaps; don't drop rows. More than
 ~300 points per line renders slowly — thin to monthly/quarterly first.
 
+For table or data-excerpt row granularity, match the rows to the question and
+time window. Monthly rows can be sensible for shorter multi-year windows,
+roughly up to 3-5 years, when timing, seasonality, or turning points matter.
+For longer windows, especially 5+ years, monthly rows often make tables too
+noisy; usually summarize with annual totals, YTD comparisons, latest/prior
+snapshots, or selected turning points instead. Do not default categorically to
+monthly or yearly rows.
+
 ### Sources
 
 ```json
