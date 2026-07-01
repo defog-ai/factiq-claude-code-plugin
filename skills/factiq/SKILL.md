@@ -14,28 +14,9 @@ description: >
   a fully formed report as a share link, render a terminal chart, or build a
   custom local HTML visualization.
 allowed-tools: >
-  mcp__plugin_factiq_factiq__get_data_catalog,
-  mcp__plugin_factiq_factiq__search_datasets,
-  mcp__plugin_factiq_factiq__describe_dataset,
-  mcp__plugin_factiq_factiq__search_series,
-  mcp__plugin_factiq_factiq__get_series,
-  mcp__plugin_factiq_factiq__run_sql,
-  mcp__plugin_factiq_factiq__get_market_data,
-  mcp__plugin_factiq_factiq__search_earnings,
-  mcp__plugin_factiq_factiq__get_style_guides,
-  mcp__plugin_factiq_factiq__share_chart,
-  mcp__plugin_factiq_factiq__share_report,
-  mcp__factiq__get_data_catalog,
-  mcp__factiq__search_datasets,
-  mcp__factiq__describe_dataset,
-  mcp__factiq__search_series,
-  mcp__factiq__get_series,
-  mcp__factiq__run_sql,
-  mcp__factiq__get_market_data,
-  mcp__factiq__search_earnings,
-  mcp__factiq__get_style_guides,
-  mcp__factiq__share_chart,
-  mcp__factiq__share_report,
+  mcp__plugin_factiq_factiq__*,
+  mcp__factiq__*,
+  mcp__claude_ai_FactIQ__*,
   Bash(python3:*), Bash(python:*), Read, Write, Agent
 ---
 
