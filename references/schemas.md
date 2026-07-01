@@ -34,6 +34,12 @@ file. Some schemas are admin-only and simply won't appear in your
 | `india_trade` | DGCI&S | Monthly imports/exports by HS commodity and partner (6- and 8-digit levels — never sum across levels) |
 | `traffic` | TomTom | Indian city traffic flow |
 
+## South Korea
+
+| Schema | Source | Coverage |
+|---|---|---|
+| `korea_trade` | Korea Customs Service (KCS) | Monthly imports/exports by HS commodity and partner (6-digit international and 10-digit national levels — never sum across levels; values are in US$ thousand and weight is stored as separate kg series) |
+
 ## Global / other
 
 | Schema | Source | Coverage |
@@ -49,12 +55,13 @@ file. Some schemas are admin-only and simply won't appear in your
 - Energy anything → `eia`
 - India macro → check BOTH `mospi` and `rbi`
 - Trade-war / commodity-flow stories → `census` + `china_customs` +
-  `india_trade` cover the same flows from each country's own books
-  (until `china_customs` data loads, the `census` mirror stands in for
-  the China side)
+  `india_trade` + `korea_trade` cover the same flows from each country's own
+  books when those reporters are in scope
 - Cross-country comparisons → `imf` / `worldbank`
 - Company-specific → `get_market_data` and `search_earnings` tools (not SQL schemas)
 
-HS trade schemas (`us_census_hs` in census, `china_customs`, `india_trade`)
-carry the same trade at multiple HS digit levels — filter to one level and
-never sum across levels.
+HS trade schemas (`us_census_hs` in census, `china_customs`, `india_trade`,
+`korea_trade`) carry the same trade at multiple HS digit levels — filter to one
+level and never sum across levels. Some reporters also store value and physical
+quantity/weight as separate series; filter value series explicitly for value
+reports.

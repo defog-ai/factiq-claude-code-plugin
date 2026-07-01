@@ -123,6 +123,29 @@ fragment instead:
 Never chart a single state/region as if it were the national figure. If you
 can't find the national aggregate, say so rather than substituting.
 
+## HS trade datasets
+
+For broad bilateral merchandise-trade questions, use
+`references/bilateral-trade.md`; it has the report trigger and ready SQL
+templates for monthly totals, latest-month YoY, YTD YoY, annual totals, and top
+HS product drivers.
+
+The core guardrails:
+
+- Filter with `dimensions` (`partner`, `flow`, `commodity`, `hs_level`) instead
+  of parsing series IDs.
+- Use exactly one HS level in an aggregation. HS-6 is the default for
+  cross-country comparison; national 8/10-digit lines are finer detail and must
+  not be summed with HS-6 rows.
+- Keep value and quantity/weight series separate. For example, Korea KCS has
+  value in `US$ Thousand` and weight in `kg`; a value report should filter
+  `measurement_units = 'US$ Thousand'`.
+- Normalize units before comparing reporters. For example, India DGCI&S values
+  are `US$ Million`, while Korea KCS values are `US$ Thousand`.
+- Query each reporter schema separately, then compare in local computation.
+  Mirror statistics differ because of timing, valuation, re-exports, and
+  revisions; state the reporter view explicitly.
+
 ## Pivoting to wide format
 
 Chart data wants one row per time period with one column per series. Use
