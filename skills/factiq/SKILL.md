@@ -50,16 +50,17 @@ output, and publish it with a tool call.
 
 Four output modes:
 
-- **Quick chart** (`share_chart` tool) — one focused chart published to FactIQ
-  as a share link. Default for questions about a single metric or comparison.
-- **Terminal chart** (`term_chart.py`) — an inline ANSI/ASCII preview rendered
-  from the same ChartSpec you would publish. Use when the user explicitly asks
-  for terminal, ASCII, inline, or local text output, or when you want to show a
-  quick preview before/alongside a share link. See **Terminal charts** below.
+- **Quick chart** (`share_chart` tool + `term_chart.py`) — one focused chart
+  published to FactIQ as a share link, plus an inline terminal preview rendered
+  from the same ChartSpec. Default for questions about a single metric or
+  comparison.
+- **Terminal chart** (`term_chart.py`) — an ANSI/ASCII preview without a share
+  link. Use only when the user explicitly asks for terminal-only, ASCII-only, or
+  local text output. See **Terminal charts** below.
 - **Detailed report** (`share_report` tool) — summary + sections of narrative
   and charts + methodology, rendered on FactIQ's share-report page exactly like
-  the in-house agent's reports. For broad or analytical questions. See
-  **Detailed reports** below.
+  the in-house agent's reports, plus inline terminal previews of its charts. For
+  broad or analytical questions. See **Detailed reports** below.
 - **Bespoke local viz** (`build_viz.py`) — a self-contained HTML file you
   author freely and save locally, not published to FactIQ. Use when the answer
   needs something the ChartSpec can't express: a custom layout, a multi-panel
@@ -140,18 +141,25 @@ field; nothing is published until it validates.
 
 ### Terminal charts — `term_chart.py`
 
-`term_chart.py render` prints a local ANSI/ASCII preview from a normal FactIQ
-ChartSpec. It never calls FactIQ; build the ChartSpec from data you already
-fetched, save it to JSON, then render it:
+`term_chart.py` prints local ANSI/ASCII previews from normal FactIQ chart
+objects. It never calls FactIQ. For `share_chart`, build the ChartSpec from data
+you already fetched, save it to JSON, publish it, then render it:
 
 ```bash
 python3 scripts/term_chart.py render --spec /tmp/factiq-chart.json --width 80 --charset ascii --color auto
 ```
 
-Use terminal charts when the user asks for terminal output, ASCII charts,
-inline/local text output, or a quick preview. Do not replace `share_chart` by
-default: for normal quick-chart answers, publish the share link; if a preview
-helps, render it from the same ChartSpec before or after publishing.
+For `share_report`, save the report object or the full `share_report` argument
+object (`{"question": "...", "report": {...}}`) to JSON, publish it, then
+render the report's charts:
+
+```bash
+python3 scripts/term_chart.py report --report /tmp/factiq-report.json --width 80 --charset ascii --color auto
+```
+
+Any time you create a shared chart or shared report, return both the share link
+and the terminal preview. Use terminal-only output only when the user explicitly
+asks for no share link.
 
 Supported terminal renderers:
 
@@ -171,6 +179,7 @@ Useful options:
 | `--height N` | Line-chart plot height |
 | `--charset ascii\|unicode-block` | Strict ASCII or denser Unicode block glyphs |
 | `--color auto\|always\|never` | ANSI color control; `auto` respects TTY, `NO_COLOR`, and `TERM=dumb` |
+| `--max-charts N` | Report previews only: cap the number of rendered charts; `0` means all |
 | `--out FILE` | Also save the rendered text |
 
 Because agents often capture command output instead of streaming it directly to
@@ -215,12 +224,17 @@ local visualizations**). Local-only; never calls the API.
 5. **Recent market data.** The DB lags for very recent market/price data — use
    `get_market_data` for current quotes, commodities, and FX.
 6. **Publish, render, or build.** Quick-chart mode: build a ChartSpec object
-   (see `references/chart-spec.md`) with wide-format data rows and call
-   `share_chart`; return the `share_url`. Terminal-chart mode: build the same
+   (see `references/chart-spec.md`) with wide-format data rows, save it to JSON,
+   call `share_chart`, then run `term_chart.py render`; return both the
+   `share_url` and terminal preview. Terminal-chart-only mode: build the same
    ChartSpec, save it to JSON, run `term_chart.py render`, and return the
-   terminal output (plus a share link if the user also wants one). Report mode:
-   build a report object (see `references/report-spec.md` and **Detailed
-   reports** below) and call `share_report`; return the `share_url`.
+   terminal output without publishing only if the user explicitly requested no
+   share link. Report mode: build a report object (see
+   `references/report-spec.md` and **Detailed reports** below), save it to JSON,
+   call `share_report`, then run `term_chart.py report`; return both the
+   `share_url` and terminal previews. If a publish validation error occurs, fix
+   and republish before rendering the final terminal preview from the corrected
+   object.
    Bespoke-viz mode: save each fetched result to a JSON file with
    `build_viz.py save` (no retyping), author an HTML file,
    `build_viz.py assemble`, `build_viz.py render` to screenshot and iterate,
@@ -307,9 +321,9 @@ the Read tool. Then embed its entire content in the assembler's prompt.
 Agent prompt template:
 
 ```
-You are a FactIQ report assembler. Build a complete report object and publish
-it with share_report. Do NOT do any data discovery or fetching — all data is
-provided below.
+You are a FactIQ report assembler. Build a complete report object, publish it
+with share_report, and render terminal previews for its charts. Do NOT do any
+data discovery or fetching — all data is provided below.
 
 USER QUESTION: {original_question}
 
@@ -329,7 +343,10 @@ Instructions:
    y_columns (for line/bar), sources, and lineage.
 5. Lineage code must be formatted multi-line SQL/Python with real newlines.
    series_refs must list every series the step used.
-6. Call share_report with question, report, and model. Return the share_url.
+6. Call share_report with question, report, and model. After it succeeds, save
+   the full share_report argument object to JSON and run:
+   `python3 {skill_dir}/scripts/term_chart.py report --report <json-file> --charset ascii --color never`
+7. Return the share_url and terminal previews.
 ```
 
 Launch the assembler:
@@ -340,7 +357,7 @@ Agent(prompt="<assembler prompt with spec + findings>", label="report-assembler"
 
 The assembler has the full spec in context, so it builds the report object
 correctly on the first attempt. It calls `share_report` itself and returns
-the `share_url`, which you relay to the user.
+the `share_url` plus terminal previews, which you relay to the user.
 
 ### Example decomposition
 
@@ -356,7 +373,8 @@ After step 2 (catalog + discovery), you identify three independent threads:
 
 Spawn three research agents in parallel. When all return, spawn one assembler
 agent with the spec and all three findings blocks. The assembler builds a
-3-section report (one per thread), calls `share_report`, and returns the URL.
+3-section report (one per thread), calls `share_report`, renders terminal
+previews, and returns both.
 
 ### When NOT to use subagents
 
@@ -396,8 +414,10 @@ Ground rules:
 
 The `share_report` tool validates the report against FactIQ's real chart
 schemas server-side, stores it as a completed public run, and returns the
-`share_url`. The report appears in your FactIQ history and can be forked by
-anyone who opens the share link.
+`share_url`. After it succeeds, render the report object with
+`term_chart.py report` so the user gets both the link and terminal previews.
+The report appears in your FactIQ history and can be forked by anyone who opens
+the share link.
 
 ## Bespoke local visualizations
 
