@@ -134,8 +134,9 @@ field; nothing is published until it validates.
 
 ### Local viz — `build_viz.py`
 
-`build_viz.py assemble … / render …` builds + screenshots a bespoke local HTML
-viz (see **Bespoke local visualizations**). Local-only; never calls the API.
+`build_viz.py save … / assemble … / render …` saves raw tool results to disk
+(no retyping), builds, and screenshots a bespoke local HTML viz (see **Bespoke
+local visualizations**). Local-only; never calls the API.
 
 ## Orchestration workflow
 
@@ -171,10 +172,11 @@ viz (see **Bespoke local visualizations**). Local-only; never calls the API.
    `references/chart-spec.md`) with wide-format data rows and call
    `share_chart`; return the `share_url`. Report mode: build a report object
    (see `references/report-spec.md` and **Detailed reports** below) and call
-   `share_report`; return the `share_url`. Bespoke-viz mode: write the fetched
-   data to JSON files, author an HTML file, `build_viz.py assemble`,
-   `build_viz.py render` to screenshot and iterate, then give the user the local
-   file path (see **Bespoke local visualizations**).
+   `share_report`; return the `share_url`. Bespoke-viz mode: save each fetched
+   result to a JSON file with `build_viz.py save` (no retyping), author an HTML
+   file, `build_viz.py assemble`, `build_viz.py render` to screenshot and
+   iterate, then give the user the local file path (see **Bespoke local
+   visualizations**).
 
 ## Subagent orchestration
 
@@ -212,14 +214,22 @@ Steps:
 1. search_datasets / describe_dataset / search_series to find the right series.
 2. Fetch data with get_series or run_sql. Aggregate in SQL to stay under the
    50-row cap.
-3. Compute derived metrics (YoY, ratios, indices) yourself.
-4. Return your findings as a structured block:
+3. Save each fetched result to its own JSON file so a later charting step can
+   load the exact numbers instead of re-querying FactIQ or retyping them.
+   Right after each fetch, run (no retyping — it copies the payload from the
+   transcript), giving each file a thread-unique name and a --match on a
+   distinctive bit of your own SQL so a sibling agent's result can't be grabbed:
+   `python3 {skill_dir}/scripts/build_viz.py save --tool run_sql --match "<distinctive SQL fragment>" --out /tmp/factiq-raw/{thread_label}-<name>.json`
+4. Compute derived metrics (YoY, ratios, indices) yourself.
+5. Return your findings as a structured block:
 
 FINDINGS:
 - sub_question: (echo it back)
 - series_used: [{schema, series_id, title}, ...]
 - sql_queries: [the exact SQL you ran, formatted multi-line]
 - data: [{columns: [...], rows: [...]}, ...] — the actual fetched/computed values
+- raw_data_files: [/tmp/factiq-raw/{thread_label}-*.json, ...] — the files you
+  saved in step 3, so a downstream viz/report step loads exact data
 - key_insights: [1-3 sentences stating what the data shows, with numbers]
 - chart_suggestion: {chart_type, title, x_column, y_columns, units}
 ```
@@ -355,17 +365,28 @@ The tool is `scripts/build_viz.py` (local-only — it never calls the API):
 
 | Command | Purpose |
 |---|---|
+| `save --out F.json [--tool run_sql] [--match STR] [--index N] [--list]` | Copy a tool result's **raw JSON from the harness transcript** to `F.json` — the shell copies the bytes, you never retype the data. Feeds `assemble --data`. Stdlib only. |
 | `assemble --template T.html --data k1=f1.json k2=f2.json … --out O.html [--open]` | Inject on-disk JSON into your HTML at the `__FACTIQ_DATA__` marker; write one portable, self-contained file. Stdlib only. List **all** key=path pairs after the one `--data` flag. |
 | `render O.html [--out P.png] [--width N] [--height N] [--full-page] [--selector CSS] [--wait MS]` | Screenshot the file in headless Chromium and report JS/console errors + failed asset loads. Installs Playwright + Chromium into `~/.factiq/viz-venv` on first run (uses `uv` if available, else a stdlib venv). |
 
 The loop that makes this work — **fetch → save → author → assemble → render →
 look → fix**:
 
-1. Fetch the data with the MCP tools, then **write each result to a JSON file**
-   with the Write tool (the file holds the tool's own `{columns, results, …}`
-   payload — see `references/viz-guide.md` for the exact shape build_viz reads
-   back). Because the MCP caps results at 50 rows, this is context-cheap;
-   aggregate or window in SQL to get exactly the rows the viz needs.
+1. Fetch the data with the MCP tools, then **save each result to a JSON file
+   with `build_viz.py save` — do not retype it via Write**. The MCP tools return
+   their payload into your context, not to disk; `save` lifts that exact payload
+   back out of the harness transcript so the shell copies the bytes (never
+   re-emit a ~100-row result by hand — it double-pays the tokens and one
+   mistyped digit ships a wrong chart with no error). Run one `save` per fetch,
+   pinning the call with `--tool`/`--match`:
+   ```bash
+   python3 scripts/build_viz.py save --match "korea_customs" --out /tmp/korea.json
+   ```
+   The file holds the tool's own `{columns, results, …}` payload — see
+   `references/viz-guide.md` (**Saving data without retyping**) for `--list`,
+   `--index`, and the fallback when a transcript can't be found. Because the MCP
+   caps results at 50 rows, this is context-cheap; aggregate or window in SQL to
+   get exactly the rows the viz needs.
 2. Copy `assets/viz-shell.html`, add any CDN library you need, and author the
    viz. Keep the `__FACTIQ_DATA__` marker inside its
    `<script id="factiq-data" type="application/json">` tag — that exact element
@@ -395,8 +416,9 @@ is to **aggregate or compute it in SQL**, not to try to fetch the raw rows:
   make a few windowed calls and stitch them.
 
 Whatever you chart or report has to be the aggregated result you bring back —
-which is also all it needs. For `build_viz`, write that (already small) result
-to a JSON file before assembling.
+which is also all it needs. For `build_viz`, persist that (already small) result
+to a JSON file with `build_viz.py save` before assembling — it copies the
+payload from the transcript so you never retype the rows.
 
 ## Errors and limits
 

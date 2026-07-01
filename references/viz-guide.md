@@ -12,12 +12,13 @@ layout, a multi-panel dashboard, a force/flow/chord diagram, an annotated
 narrative, a novel encoding, an interactive cross-filtered view, or just
 fine-grained control over a chart's look.
 
-## The two commands
+## The three commands
 
 `scripts/build_viz.py` is local-only (it never calls the FactIQ API):
 
 | Command | Purpose |
 |---|---|
+| `save --out F.json [--tool run_sql] [--match STR] [--index N] [--list]` | Copy a tool result's **raw JSON straight from the harness transcript** to `F.json` — the shell does the byte copy, you never retype the data. Feeds `assemble --data`. Stdlib only. See **Saving data without retyping** below. |
 | `assemble --template T --data k1=f1.json k2=f2.json … --out O.html [--open]` | Inject on-disk JSON into your HTML at the `__FACTIQ_DATA__` marker; write one portable file. Stdlib only. Pass **all** key=path pairs after the single `--data` flag (or repeat the flag — both work). |
 | `render H.html [--out P.png] [--width] [--height] [--full-page] [--selector CSS] [--wait MS]` | Screenshot the file in headless Chromium and report JS/console errors + failed requests. Installs Playwright + Chromium into `~/.factiq/viz-venv` on first run. |
 
@@ -27,13 +28,15 @@ stderr," not "minor warning."
 
 ## The workflow
 
-1. **Fetch the data with the MCP tools, then save each result to disk.** Call
-   `run_sql` / `get_series`, then write the tool's result to a JSON file with
-   the Write tool — `build_viz` reads its data from files, not from your
-   context. Results cap at 50 rows, so aggregate in SQL (`GROUP BY
-   date_trunc(...)`) or window a series to exactly the rows the viz needs. Save
-   the whole tool result (it carries `columns` + `results`), e.g. to
-   `/tmp/jobs.json`.
+1. **Fetch the data with the MCP tools, then save each result to disk with
+   `build_viz.py save` — do not retype it.** Call `run_sql` / `get_series` /
+   `get_market_data`, then run `save` to lift that tool's exact JSON payload out
+   of the harness transcript onto disk. `build_viz` reads its data from files,
+   not from your context, and `save` copies the bytes through the shell so you
+   never re-emit the numbers by hand (see **Saving data without retyping**).
+   Results cap at 50 rows, so aggregate in SQL (`GROUP BY date_trunc(...)`) or
+   window a series to exactly the rows the viz needs. `save` writes the whole
+   tool result (it carries `columns` + `results`), e.g. to `/tmp/jobs.json`.
 2. **Copy the shell and author the viz.** Start from `assets/viz-shell.html`
    (or write your own). Add any CDN `<script>` you need, then write the
    visualization. Keep the `__FACTIQ_DATA__` marker — that is where the data
@@ -69,6 +72,50 @@ stderr," not "minor warning."
 5. **Deliver.** Tell the user the file path; offer `assemble … --open` (or
    `open /tmp/out.html`) to open it in their browser. The file is portable and
    needs only internet for its CDN libraries.
+
+## Saving data without retyping
+
+`build_viz` reads its data from files, but the MCP tools return their payload
+into your **context**, not to disk. Never bridge that gap by hand-copying the
+rows into a `Write` call: re-emitting a payload you have already seen pays for
+every byte a second time as output tokens, and a single mistyped digit in a
+numeric literal (`11428031` → `11482031`) still parses as valid JSON and still
+renders — a wrong chart with no error to catch it.
+
+`build_viz.py save` closes the gap. The harness already writes every tool
+result to an on-disk transcript; `save` reads the exact payload back out of it
+and writes it to a file, so the **shell** copies the bytes and you never retype
+a number. It handles both Claude Code and Codex transcripts and auto-detects the
+live session.
+
+Right after a fetch, save its result:
+
+```bash
+# The most recent run_sql result → korea.json
+python3 scripts/build_viz.py save --tool run_sql --out /tmp/korea.json
+```
+
+- `--tool run_sql` (or `get_series`, `get_market_data`) keeps only that tool's
+  results, so an intervening `Bash`/`Read` call can't be grabbed by mistake.
+- `--match STR` pins the exact call by a substring of its **input** — a schema
+  name or a distinctive fragment of the SQL you just wrote — so it's
+  unambiguous even when you fetched several series in one turn:
+  ```bash
+  python3 scripts/build_viz.py save --match "korea_customs" --out /tmp/korea.json
+  python3 scripts/build_viz.py save --match "census" --out /tmp/census.json
+  ```
+- `--list` prints the matching results (tool, row count, input preview) with
+  their indices instead of saving — use it to pick, then `--index N` to save a
+  specific one. `--index` defaults to `-1` (the most recent match).
+- Output: `{out, tool, rows, input_preview}`. A non-JSON result (e.g. a plain
+  `Bash` result) can't be saved as viz data — narrow with `--tool`/`--match`.
+
+If `save` can't find the transcript (an unusual harness, or `--transcript` is
+wrong), it says so — only then fall back to writing the payload with `Write`.
+For a **multi-series** viz, run one `save` per fetch, then pass every file to
+`assemble --data`. This is also how a research subagent hands raw data to a
+later charting step (see SKILL.md **Subagent orchestration**): save each fetched
+result to a file and return the path, instead of re-querying FactIQ or retyping.
 
 ## The data contract
 

@@ -24,6 +24,7 @@ value is the full factiq payload, so result rows live at DATA.<key>.results.
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import shutil
@@ -50,6 +51,267 @@ def _row_count(value: object) -> int | None:
     if isinstance(value, list):
         return len(value)
     return None
+
+
+# ---------------------------------------------------------------------------
+# save — lift a tool result out of the harness transcript onto disk
+#
+# The FactIQ MCP tools already return the full JSON payload into the model's
+# context. Re-emitting that same payload through a Write call to feed `assemble`
+# pays for every byte a second time (as output tokens) and risks a silent
+# transcription slip in a numeric literal. Instead, read the payload straight
+# from the on-disk transcript the harness already keeps and let the shell copy
+# the bytes — the model never retypes the data. Works for Claude Code and Codex.
+# ---------------------------------------------------------------------------
+
+CLAUDE_PROJECTS = os.path.expanduser("~/.claude/projects")
+CODEX_SESSIONS = os.path.expanduser("~/.codex/sessions")
+
+
+def _newest(paths: list[str]) -> str | None:
+    files = [p for p in paths if os.path.isfile(p)]
+    return max(files, key=os.path.getmtime) if files else None
+
+
+def _claude_transcript_for_cwd() -> str | None:
+    # Claude Code stores each session at ~/.claude/projects/<slug>/<uuid>.jsonl,
+    # where <slug> is the working directory with every "/" turned into "-".
+    slug = os.getcwd().replace("/", "-")
+    here = _newest(glob.glob(os.path.join(CLAUDE_PROJECTS, slug, "*.jsonl")))
+    if here:
+        return here
+    # Subagents/commands may run from a different cwd; fall back to the globally
+    # newest Claude transcript (the live session is the one being written).
+    return _newest(glob.glob(os.path.join(CLAUDE_PROJECTS, "*", "*.jsonl")))
+
+
+def _codex_transcript() -> str | None:
+    return _newest(
+        glob.glob(os.path.join(CODEX_SESSIONS, "**", "*.jsonl"), recursive=True)
+    )
+
+
+def _find_transcript() -> str | None:
+    """Locate the live harness transcript — whichever of Claude Code / Codex was
+    written most recently, since that is the session running right now."""
+    cands = [p for p in (_claude_transcript_for_cwd(), _codex_transcript()) if p]
+    return max(cands, key=os.path.getmtime) if cands else None
+
+
+def _sniff_kind(path: str) -> str:
+    if os.sep + ".codex" + os.sep in path:
+        return "codex"
+    if os.sep + ".claude" + os.sep in path:
+        return "claude"
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                obj = json.loads(line)
+                if isinstance(obj.get("payload"), dict):
+                    return "codex"
+                if isinstance(obj.get("message"), dict):
+                    return "claude"
+    except (OSError, json.JSONDecodeError):
+        pass
+    return "claude"
+
+
+def _result_text(content: object) -> str:
+    """Flatten a tool_result / MCP content value to its text payload."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = [
+            b.get("text", "")
+            for b in content
+            if isinstance(b, dict) and b.get("type") == "text"
+        ]
+        return "".join(parts)
+    return ""
+
+
+def _dumps_input(inp: object) -> str:
+    if isinstance(inp, str):
+        return inp
+    try:
+        return json.dumps(inp, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return str(inp)
+
+
+def _make_record(tool: str, input_str: str, text: str) -> dict:
+    parsed: object | None = None
+    if text:
+        try:
+            parsed = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            parsed = None
+    # Some clients store an MCP result as its raw envelope
+    # {"content": [{"type": "text", "text": "<json>"}]}; unwrap it to the actual
+    # payload so the saved file is the tool's data, not the transport wrapper.
+    if (
+        isinstance(parsed, dict)
+        and "content" in parsed
+        and "results" not in parsed
+        and "columns" not in parsed
+    ):
+        inner = _result_text(parsed.get("content"))
+        if inner:
+            try:
+                parsed = json.loads(inner)
+                text = inner
+            except (json.JSONDecodeError, TypeError):
+                pass
+    rows = _row_count(parsed) if parsed is not None else None
+    return {"tool": tool, "input": input_str, "json": parsed, "rows": rows}
+
+
+def _parse_claude(path: str) -> list[dict]:
+    names: dict[str, tuple[str, str]] = {}
+    results: list[tuple[str, str]] = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            msg = obj.get("message")
+            content = msg.get("content") if isinstance(msg, dict) else None
+            if not isinstance(content, list):
+                continue
+            for b in content:
+                if not isinstance(b, dict):
+                    continue
+                if b.get("type") == "tool_use":
+                    names[b.get("id")] = (
+                        b.get("name", ""),
+                        _dumps_input(b.get("input")),
+                    )
+                elif b.get("type") == "tool_result":
+                    results.append(
+                        (b.get("tool_use_id"), _result_text(b.get("content")))
+                    )
+    out = []
+    for tuid, text in results:
+        name, inp = names.get(tuid, ("", ""))
+        out.append(_make_record(name, inp, text))
+    return out
+
+
+def _parse_codex(path: str) -> list[dict]:
+    names: dict[str, tuple[str, str]] = {}
+    results: list[tuple[str, str]] = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            p = obj.get("payload") if isinstance(obj.get("payload"), dict) else obj
+            pt = p.get("type")
+            if pt == "function_call":
+                names[p.get("call_id")] = (p.get("name", ""), p.get("arguments", "") or "")
+            elif pt == "function_call_output":
+                out = p.get("output")
+                text = out if isinstance(out, str) else _result_text(out)
+                results.append((p.get("call_id"), text))
+    recs = []
+    for cid, text in results:
+        name, inp = names.get(cid, ("", ""))
+        recs.append(_make_record(name, inp, text))
+    return recs
+
+
+def _tool_matches(name: str, wanted: str) -> bool:
+    if not name:
+        return False
+    if name == wanted or name.split("__")[-1] == wanted:
+        return True
+    return wanted in name
+
+
+def cmd_save(args: argparse.Namespace) -> None:
+    path = args.transcript or _find_transcript()
+    if not path:
+        fail(
+            "Could not locate a harness transcript. Pass --transcript PATH, or "
+            "fall back to writing the payload with the Write tool."
+        )
+    if not os.path.isfile(path):
+        fail(f"No such transcript: {path}")
+
+    recs = _parse_codex(path) if _sniff_kind(path) == "codex" else _parse_claude(path)
+
+    sel = recs
+    if args.tool:
+        sel = [r for r in sel if _tool_matches(r["tool"], args.tool)]
+    if args.match:
+        m = args.match.lower()
+        sel = [
+            r
+            for r in sel
+            if m in (r["input"] or "").lower() or m in (r["tool"] or "").lower()
+        ]
+
+    if args.list or not args.out:
+        listing = [
+            {
+                "index": i,
+                "neg_index": i - len(sel),
+                "tool": r["tool"] or None,
+                "rows": r["rows"],
+                "json": r["json"] is not None,
+                "input_preview": (r["input"] or "")[:120],
+            }
+            for i, r in enumerate(sel)
+        ]
+        print(json.dumps({"transcript": path, "results": listing}, indent=2))
+        if not args.out and not args.list:
+            fail("Nothing saved: pass --out FILE to save one of the results above.")
+        return
+
+    if not sel:
+        fail(
+            "No tool result matched. Re-run with --list (optionally --tool "
+            "run_sql) to see what the transcript holds."
+        )
+    try:
+        rec = sel[args.index]
+    except IndexError:
+        fail(f"--index {args.index} is out of range; {len(sel)} result(s) matched.")
+    if rec["json"] is None:
+        fail(
+            "The matched result is not JSON, so it can't be saved as viz data. "
+            "Use --list to pick another (narrow with --tool/--match)."
+        )
+
+    out = os.path.abspath(args.out)
+    parent = os.path.dirname(out)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    try:
+        with open(out, "w") as f:
+            json.dump(rec["json"], f)
+    except OSError as exc:
+        fail(f"Cannot write {out}: {exc}")
+
+    stub = {
+        "out": out,
+        "tool": rec["tool"] or None,
+        "input_preview": (rec["input"] or "")[:120],
+    }
+    if rec["rows"] is not None:
+        stub["rows"] = rec["rows"]
+    print(json.dumps(stub, indent=2))
 
 
 def _escape_for_html(text: str) -> str:
@@ -320,6 +582,47 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", required=True, help="Output HTML path")
     p.add_argument("--open", action="store_true", help="Open the result in the browser")
     p.set_defaults(func=cmd_assemble)
+
+    p = sub.add_parser(
+        "save",
+        help="Copy a tool result's raw JSON from the harness transcript to a "
+        "file — no retyping (feeds assemble --data)",
+    )
+    p.add_argument(
+        "--out",
+        help="Where to write the extracted JSON. Omit (or pass --list) to just "
+        "list the available results without saving.",
+    )
+    p.add_argument(
+        "--tool",
+        help="Only match results from this tool, e.g. run_sql / get_series / "
+        "get_market_data (matches the MCP tool-name suffix).",
+    )
+    p.add_argument(
+        "--match",
+        help="Only match results whose tool input contains this substring "
+        "(case-insensitive) — e.g. a schema name or a distinctive bit of your "
+        "SQL. Lets you pin the exact call without reading its output back.",
+    )
+    p.add_argument(
+        "--index",
+        type=int,
+        default=-1,
+        help="Which of the matching results to save (default -1, the most "
+        "recent). Use --list to see indices.",
+    )
+    p.add_argument(
+        "--list",
+        action="store_true",
+        help="List the matching results (tool, row count, input preview) "
+        "instead of saving.",
+    )
+    p.add_argument(
+        "--transcript",
+        help="Transcript file to read (default: auto-detect the live Claude "
+        "Code / Codex session).",
+    )
+    p.set_defaults(func=cmd_save)
 
     p = sub.add_parser(
         "render",
