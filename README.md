@@ -50,6 +50,14 @@ Complete the browser sign-in (the same FactIQ login: email, Google, or
 passkey). Start a new Codex thread after installation; the skill auto-invokes
 for economic/financial data questions.
 
+To update an existing Codex install after this marketplace changes, refresh the
+configured marketplace name (`factiq`), then reinstall the plugin:
+
+```bash
+codex plugin marketplace upgrade factiq
+codex plugin add factiq@factiq
+```
+
 <details>
 <summary>Alternative: install as a standalone MCP server (no plugin)</summary>
 
