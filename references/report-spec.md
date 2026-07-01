@@ -236,4 +236,6 @@ summary.
 5. After `share_report` succeeds, render terminal previews from the same report
    JSON:
    `python3 scripts/term_chart.py report --report <file> --charset ascii --color never`
-6. Return the `share_url`, terminal previews, and the report's key findings.
+6. Return the `share_url`, paste the terminal previews into your reply inside a
+   triple-backtick code block, and include the report's key findings. Do not
+   leave the previews only in the tool result.

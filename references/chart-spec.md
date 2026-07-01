@@ -169,4 +169,6 @@ Two rules the panel depends on:
 5. After `share_chart` succeeds, render a terminal preview from the same saved
    spec:
    `python3 scripts/term_chart.py render --spec <file> --charset ascii --color never`
-6. Return the `share_url` and terminal preview.
+6. Return the `share_url` and paste the terminal preview into your reply inside
+   a triple-backtick code block. Do not leave the preview only in the tool
+   result.
