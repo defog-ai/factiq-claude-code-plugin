@@ -36,7 +36,8 @@ Connect flow to authorize the tools (see below).
 ### Codex
 
 ```bash
-git clone https://github.com/defog-ai/factiq-claude-code-plugin.git ~/.codex/plugins/factiq
+codex plugin marketplace add defog-ai/factiq-plugin
+codex plugin add factiq@factiq
 ```
 
 Then authorize the MCP server:
@@ -46,7 +47,8 @@ codex mcp login factiq
 ```
 
 Complete the browser sign-in (the same FactIQ login: email, Google, or
-passkey). The skill auto-invokes for economic/financial data questions.
+passkey). Start a new Codex thread after installation; the skill auto-invokes
+for economic/financial data questions.
 
 <details>
 <summary>Alternative: install as a standalone MCP server (no plugin)</summary>
@@ -88,9 +90,13 @@ covers both data fetching and publishing.
 
 - `.mcp.json` — declares the bundled FactIQ MCP server (Streamable HTTP,
   OAuth). Read by both Claude Code and Codex plugin loaders.
-- `SKILL.md` — the skill definition both agents load (setup, workflow, limits)
+- `SKILL.md` — the Claude Code skill definition and repo-local source of truth
+  for the workflow
+- `skills/factiq/SKILL.md` — the Codex-packaged copy of the skill
 - `AGENTS.md` — Codex project-level instructions (points to SKILL.md)
 - `commands/ask.md` — the `/factiq:ask` slash command (Claude Code)
+- `.agents/plugins/marketplace.json` — Codex marketplace entry for
+  `codex plugin marketplace add defog-ai/factiq-plugin`
 - `scripts/build_viz.py` — local-only tool to assemble fetched data into a
   self-contained HTML viz and screenshot it headless for iteration. `save`
   copies a tool result's raw JSON out of the harness transcript to disk (no
