@@ -4,8 +4,8 @@
 This is a local-only companion to share_chart: feed it the same ChartSpec object
 you would publish, or a share_report report object, and it prints compact
 terminal renderings. The renderer is stdlib-only and intentionally conservative:
-v1 handles bars, sparklines, simple line charts, and falls back to a table for
-anything else.
+v1 handles bars, simple line charts, and falls back to a table for anything
+else.
 """
 from __future__ import annotations
 
@@ -20,8 +20,6 @@ from datetime import datetime
 from typing import Any
 
 
-ASCII_LEVELS = ".:-=+*#%@"
-BLOCK_LEVELS = "▁▂▃▄▅▆▇█"
 ANSI_COLORS = [31, 34, 32, 35, 36, 33, 90]
 ANSI_BOLD = 1
 ANSI_DIM = 2
@@ -48,15 +46,53 @@ def visible_len(text: str) -> int:
     return out
 
 
-def ellipsize(text: object, width: int) -> str:
+def wrap_cell(text: object, width: int) -> list[str]:
+    # Wrap text to `width` columns, breaking long words so nothing is ever
+    # truncated — long content overflows onto continuation lines instead.
     value = str(text)
     if width <= 0:
-        return ""
-    if len(value) <= width:
-        return value
-    if width <= 3:
-        return value[:width]
-    return value[: width - 3] + "..."
+        return [value]
+    lines = textwrap.wrap(
+        value,
+        width=width,
+        break_long_words=True,
+        break_on_hyphens=False,
+    )
+    return lines or [""]
+
+
+def pack_line(parts: list[str], sep: str, width: int) -> list[str]:
+    # Greedily pack styled parts into lines no wider than `width` (measured by
+    # visible length). A single part longer than `width` gets its own line and
+    # is allowed to overflow rather than be truncated.
+    out: list[str] = []
+    current = ""
+    for part in parts:
+        if not current:
+            current = part
+            continue
+        if visible_len(current) + len(sep) + visible_len(part) <= width:
+            current += sep + part
+        else:
+            out.append(current)
+            current = part
+    if current:
+        out.append(current)
+    return out or [""]
+
+
+def combine_columns(col_lines: list[list[str]], widths: list[int], sep: str = "  ") -> list[str]:
+    # Stack pre-styled, per-column line lists into aligned rows. Cells that wrap
+    # to more lines than their neighbours leave the shorter columns blank.
+    height = max((len(c) for c in col_lines), default=0)
+    out: list[str] = []
+    for r in range(height):
+        cells = []
+        for i, lines_ in enumerate(col_lines):
+            cell = lines_[r] if r < len(lines_) else ""
+            cells.append(pad(cell, widths[i]))
+        out.append(sep.join(cells))
+    return out
 
 
 def pad(text: str, width: int, align: str = "left") -> str:
@@ -197,12 +233,10 @@ def choose_type(spec: dict[str, Any], rows: list[dict[str, Any]], series: list[d
     ctype = str(spec.get("type") or "").lower()
     if ctype == "bar":
         return "bar"
-    if ctype == "line":
-        if len(series) <= 2 and len(rows) >= 3:
+    if ctype in {"line", "area", "stacked_area"}:
+        if len(rows) >= 3:
             return "line"
-        return "sparkline"
-    if ctype in {"area", "stacked_area"}:
-        return "sparkline"
+        return "table"
     return "table"
 
 
@@ -242,65 +276,14 @@ def render_bar(
         if val < 0:
             bar = "-" + bar
         bar = paint(bar, si, colors)
+        label_lines = wrap_cell(label, max_label)
+        for prefix in label_lines[:-1]:
+            lines.append(pad(prefix, max_label))
         lines.append(
-            f"{pad(ellipsize(label, max_label), max_label)} "
+            f"{pad(label_lines[-1], max_label)} "
             f"{pad(bar, bar_width + (1 if val < 0 else 0))} "
             f"{pad(fmt_num(val), val_width, 'right')}"
         )
-    return "\n".join(lines)
-
-
-def level_char(value: float | None, low: float, high: float, charset: str) -> str:
-    levels = ASCII_LEVELS if charset == "ascii" else BLOCK_LEVELS
-    if value is None:
-        return " "
-    if high == low:
-        return levels[-1]
-    pos = (value - low) / (high - low)
-    idx = max(0, min(len(levels) - 1, round(pos * (len(levels) - 1))))
-    return levels[idx]
-
-
-def render_sparkline(
-    spec: dict[str, Any],
-    rows: list[dict[str, Any]],
-    x_key: str,
-    series: list[dict[str, Any]],
-    width: int,
-    colors: bool,
-    charset: str,
-) -> str:
-    lines = header(spec, width, colors)
-    label_width = min(22, max(8, max(len(str(s.get("label") or s["key"])) for s in series)))
-    spark_width = max(10, width - label_width - 24)
-
-    for si, s in enumerate(series):
-        vals = [number(row.get(s["key"])) for row in rows]
-        numeric = [v for v in vals if v is not None]
-        if not numeric:
-            continue
-        low, high = min(numeric), max(numeric)
-        if len(vals) > spark_width:
-            bucketed: list[float | None] = []
-            for i in range(spark_width):
-                start = math.floor(i * len(vals) / spark_width)
-                end = math.floor((i + 1) * len(vals) / spark_width)
-                sample = [v for v in vals[start : max(end, start + 1)] if v is not None]
-                bucketed.append(sum(sample) / len(sample) if sample else None)
-            vals = bucketed
-        spark = "".join(level_char(v, low, high, charset) for v in vals)
-        latest = next((v for v in reversed(vals) if v is not None), None)
-        label = str(s.get("label") or s["key"])
-        lines.append(
-            f"{pad(ellipsize(label, label_width), label_width)} "
-            f"{paint(spark, si, colors)} "
-            f"{pad(fmt_num(low), 9, 'right')}..{pad(fmt_num(high), 9, 'right')}"
-            f" last {fmt_num(latest)}"
-        )
-
-    if rows:
-        lines.append("")
-        lines.append(f"{parse_dateish(rows[0].get(x_key, ''))} -> {parse_dateish(rows[-1].get(x_key, ''))}")
     return "\n".join(lines)
 
 
@@ -364,14 +347,14 @@ def render_line(
         start = parse_dateish(rows[0].get(x_key, ""))
         end = parse_dateish(rows[-1].get(x_key, ""))
         axis = f"{start} -> {end}"
-        lines.append(f"{' ' * 12}{ellipsize(axis, plot_width)}")
+        for chunk in wrap_cell(axis, plot_width):
+            lines.append(f"{' ' * 12}{chunk}")
     legend_parts = []
-    legend_budget = max(8, width // max(1, len(series)) - 2)
     for i, s in enumerate(series):
         symbol = "*" if charset == "ascii" else "•"
-        label = ellipsize(str(s.get("label") or s["key"]), legend_budget - 2)
+        label = str(s.get("label") or s["key"])
         legend_parts.append(paint(f"{symbol} {label}", i, colors))
-    lines.append("  ".join(legend_parts))
+    lines.extend(pack_line(legend_parts, "  ", width))
     return "\n".join(lines)
 
 
@@ -390,24 +373,27 @@ def render_table(
     gap = 2 * (col_count - 1)
     col_width = max(6, (width - gap) // col_count)
     widths = [col_width] * col_count
-    header_cells = []
+    header_cols = []
     for i, label in enumerate(labels):
-        text = ellipsize(label, widths[i])
-        text = style(text, colors, ANSI_DIM) if i == 0 else paint(text, i - 1, colors)
-        header_cells.append(pad(text, widths[i]))
-    lines.append("  ".join(header_cells))
+        wrapped = wrap_cell(label, widths[i])
+        styled = [
+            style(w, colors, ANSI_DIM) if i == 0 else paint(w, i - 1, colors)
+            for w in wrapped
+        ]
+        header_cols.append(styled)
+    lines.extend(combine_columns(header_cols, widths))
     lines.append(style("  ".join("-" * w for w in widths), colors, ANSI_DIM))
     for row in rows[: min(len(rows), 12)]:
-        cells = []
+        cols = []
         for i, key in enumerate(keys):
             val = row.get(key)
             num = number(val)
             text = fmt_num(num) if num is not None and key != x_key else parse_dateish(val)
-            text = ellipsize(text, widths[i])
+            wrapped = wrap_cell(text, widths[i])
             if i > 0 and num is not None:
-                text = paint(text, i - 1, colors)
-            cells.append(pad(text, widths[i]))
-        lines.append("  ".join(cells))
+                wrapped = [paint(w, i - 1, colors) for w in wrapped]
+            cols.append(wrapped)
+        lines.extend(combine_columns(cols, widths))
     if len(rows) > 12:
         lines.append(style(f"... {len(rows) - 12} more rows", colors, ANSI_DIM))
     return "\n".join(lines)
@@ -429,11 +415,7 @@ def render(spec: dict[str, Any], args: argparse.Namespace) -> str:
 
     if selected == "bar":
         return render_bar(spec, rows, x_key, series, width_int, colors, charset)
-    if selected == "sparkline":
-        return render_sparkline(spec, rows, x_key, series, width_int, colors, charset)
     if selected == "line":
-        if len(series) > 2:
-            return render_sparkline(spec, rows, x_key, series, width_int, colors, charset)
         return render_line(spec, rows, x_key, series, width_int, args.height, colors, charset)
     if selected == "table":
         return render_table(spec, rows, x_key, series, width_int, colors)
@@ -561,7 +543,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--spec", required=True, help="ChartSpec JSON file, or '-' for stdin")
     p.add_argument(
         "--type",
-        choices=["auto", "bar", "sparkline", "line", "table"],
+        choices=["auto", "bar", "line", "table"],
         default="auto",
         help="Terminal rendering type. auto maps from ChartSpec.type.",
     )
@@ -597,7 +579,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--type",
-        choices=["auto", "bar", "sparkline", "line", "table"],
+        choices=["auto", "bar", "line", "table"],
         default="auto",
         help="Terminal rendering type. auto maps from each report chart_type.",
     )
