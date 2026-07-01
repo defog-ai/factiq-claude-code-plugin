@@ -164,6 +164,9 @@ Two rules the panel depends on:
    `data` rows, and that the spec carries both `sources[]` and a `lineage`
    DAG (see above) — they are what the share page shows as the Data Source
    line and the "How we built this" panel.
-4. Call `share_chart` with `chart` = the spec object (and `question` = the
-   question it answers).
-5. Return the `share_url`.
+4. Save the final spec to JSON, then call `share_chart` with `chart` = the spec
+   object (and `question` = the question it answers).
+5. After `share_chart` succeeds, render a terminal preview from the same saved
+   spec:
+   `python3 scripts/term_chart.py render --spec <file> --charset ascii --color never`
+6. Return the `share_url` and terminal preview.

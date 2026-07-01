@@ -230,6 +230,10 @@ summary.
 3. Build the report object from the fetched values — assemble it in context, or
    write the data arrays with the Write tool / a small local Python script;
    don't hand-type data rows.
-4. Call `share_report` with `question`, `report` (the object), and optional
-   `model`.
-5. Return the `share_url` and the report's key findings.
+4. Save the report object (or the full `share_report` argument object) to JSON,
+   then call `share_report` with `question`, `report` (the object), and
+   optional `model`.
+5. After `share_report` succeeds, render terminal previews from the same report
+   JSON:
+   `python3 scripts/term_chart.py report --report <file> --charset ascii --color never`
+6. Return the `share_url`, terminal previews, and the report's key findings.

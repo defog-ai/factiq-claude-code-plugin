@@ -42,17 +42,16 @@ Codex: `codex mcp login factiq`), then retry.
 
 **Pick the output mode before doing any data work:**
 
-- **Quick chart** — one focused chart plus a short narrative. Right when the
-  question names a single metric, series, or comparison: "How has X
-  changed?", "X vs Y", "What is the current Z?".
-- **Terminal chart** — an ANSI/ASCII preview rendered from the same ChartSpec
-  used by quick charts. Right when the user asks for terminal, ASCII, inline,
-  local text output, or a quick preview.
+- **Quick chart** — one focused shared chart, terminal preview, and short
+  narrative. Right when the question names a single metric, series, or
+  comparison: "How has X changed?", "X vs Y", "What is the current Z?".
+- **Terminal chart** — an ANSI/ASCII preview without a share link. Use only
+  when the user asks for terminal-only, ASCII-only, or local text output.
 - **Detailed report** — a multi-section shareable report (summary, 2–5
-  sections of narrative + charts, methodology notes). Right when the
-  question is broad or analytical: "the state of the US labor market",
-  "what's driving inflation", "deep dive", or the user says report /
-  analysis / comprehensive.
+  sections of narrative + charts, methodology notes) plus terminal previews of
+  the report charts. Right when the question is broad or analytical: "the state
+  of the US labor market", "what's driving inflation", "deep dive", or the user
+  says report / analysis / comprehensive.
 
 If the question clearly fits one mode, proceed without asking. Only when it
 is genuinely ambiguous — broad enough that a report would add value, but a
@@ -63,16 +62,19 @@ more of their tokens and FactIQ tool quota.
 Then follow SKILL.md's orchestration workflow (catalog → discover → fetch →
 compute, all via the MCP tools) and finish per the mode:
 
-- **Quick chart** → build a ChartSpec (`references/chart-spec.md`), publish
-  with the `share_chart` tool, and return the share URL plus a short narrative
-  of what the data shows.
+- **Quick chart** → build a ChartSpec (`references/chart-spec.md`), save it to
+  JSON, publish with the `share_chart` tool, run
+  `python3 scripts/term_chart.py render --spec <file> --charset ascii --color never`,
+  and return the share URL, terminal preview, and a short narrative of what the
+  data shows.
 - **Terminal chart** → build a ChartSpec (`references/chart-spec.md`), save it
   to JSON, run `python3 scripts/term_chart.py render --spec <file> --charset ascii --color never`,
-  and return the rendered output plus a short narrative. Publish with
-  `share_chart` too only if the user also asked for a share link.
+  and return the rendered output plus a short narrative without publishing.
 - **Detailed report** → follow SKILL.md's **Detailed reports** section and
-  `references/report-spec.md`, publish with the `share_report` tool, and return
-  the share URL plus the report's key findings.
+  `references/report-spec.md`, save the report object to JSON, publish with the
+  `share_report` tool, run
+  `python3 scripts/term_chart.py report --report <file> --charset ascii --color never`,
+  and return the share URL, terminal previews, and the report's key findings.
 
 For report-mode questions that span multiple topics, companies, or data sources,
 decompose the research into parallel subagents after initial discovery — one

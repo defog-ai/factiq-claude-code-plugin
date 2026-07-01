@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Render a FactIQ ChartSpec as an ANSI/ASCII terminal preview.
+"""Render FactIQ charts as ANSI/ASCII terminal previews.
 
 This is a local-only companion to share_chart: feed it the same ChartSpec object
-you would publish, and it prints a compact terminal rendering. The renderer is
-stdlib-only and intentionally conservative: v1 handles bars, sparklines, simple
-line charts, and falls back to a table for anything else.
+you would publish, or a share_report report object, and it prints compact
+terminal renderings. The renderer is stdlib-only and intentionally conservative:
+v1 handles bars, sparklines, simple line charts, and falls back to a table for
+anything else.
 """
 from __future__ import annotations
 
@@ -139,6 +140,22 @@ def load_spec(path: str) -> dict[str, Any]:
         fail(f"{path} is not valid JSON: {exc}")
     if not isinstance(data, dict):
         fail("ChartSpec must be a JSON object.")
+    return data
+
+
+def load_json_object(path: str, label: str) -> dict[str, Any]:
+    try:
+        if path == "-":
+            data = json.load(sys.stdin)
+        else:
+            with open(path) as f:
+                data = json.load(f)
+    except OSError as exc:
+        fail(f"Cannot read {path}: {exc}")
+    except json.JSONDecodeError as exc:
+        fail(f"{path} is not valid JSON: {exc}")
+    if not isinstance(data, dict):
+        fail(f"{label} must be a JSON object.")
     return data
 
 
@@ -403,10 +420,115 @@ def render(spec: dict[str, Any], args: argparse.Namespace) -> str:
     fail(f"Unsupported --type {selected!r}.")
 
 
+def normalize_report_rows(chart: dict[str, Any]) -> list[dict[str, Any]]:
+    columns = chart.get("columns")
+    data = chart.get("data")
+    if not isinstance(columns, list) or not isinstance(data, list):
+        return []
+    col_names = [str(c) for c in columns]
+    rows: list[dict[str, Any]] = []
+    for row in data:
+        if isinstance(row, dict):
+            rows.append(row)
+        elif isinstance(row, list):
+            rows.append(
+                {col_names[i]: row[i] if i < len(row) else None for i in range(len(col_names))}
+            )
+    return rows
+
+
+def report_chart_to_spec(chart: dict[str, Any], fallback_title: str) -> dict[str, Any] | None:
+    rows = normalize_report_rows(chart)
+    if not rows:
+        return None
+    chart_type = str(chart.get("chart_type") or "table")
+    columns = [str(c) for c in chart.get("columns", [])]
+    x_column = chart.get("x_column") or (columns[0] if columns else None)
+    y_columns = chart.get("y_columns")
+    if not isinstance(y_columns, list) or not y_columns:
+        y_columns = [c for c in columns if c != x_column]
+    if not x_column or not y_columns:
+        return None
+    spec_type = "line" if chart_type == "line" else "bar" if chart_type == "bar" else "table"
+    return {
+        "title": chart.get("title") or fallback_title,
+        "type": spec_type,
+        "xField": {"key": str(x_column)},
+        "series": [{"key": str(c), "label": str(c)} for c in y_columns],
+        "data": rows,
+    }
+
+
+def report_object(value: dict[str, Any]) -> dict[str, Any]:
+    # Accept either the raw report object or a wrapper such as
+    # {"question": "...", "report": {...}} used as share_report arguments.
+    report = value.get("report")
+    if isinstance(report, dict):
+        return report
+    return value
+
+
+def render_report(report_payload: dict[str, Any], args: argparse.Namespace) -> str:
+    report = report_object(report_payload)
+    sections = report.get("sections")
+    if not isinstance(sections, list):
+        fail("Report must contain a sections array, or be wrapped as {report: ...}.")
+
+    outputs: list[str] = []
+    chart_count = 0
+    max_charts = args.max_charts
+
+    for section_index, section in enumerate(sections, start=1):
+        if not isinstance(section, dict):
+            continue
+        charts = section.get("charts")
+        if not isinstance(charts, list):
+            continue
+        heading = str(section.get("heading") or f"Section {section_index}")
+        for chart_index, chart in enumerate(charts, start=1):
+            if max_charts and chart_count >= max_charts:
+                remaining = remaining_report_charts(sections, chart_count)
+                outputs.append(f"... {remaining} more chart(s) not shown")
+                return "\n\n".join(outputs)
+            if not isinstance(chart, dict):
+                continue
+            spec = report_chart_to_spec(chart, f"{heading} chart {chart_index}")
+            if spec is None:
+                continue
+            chart_count += 1
+            prefix = f"{heading}"
+            if len(charts) > 1:
+                prefix = f"{heading} / chart {chart_index}"
+            rendered = render(spec, args)
+            rule = "-" * min(len(prefix), max(8, int_width(args.width)))
+            outputs.append(f"{prefix}\n{rule}\n{rendered}")
+
+    if not outputs:
+        return "No report charts could be rendered as terminal previews."
+    return "\n\n".join(outputs)
+
+
+def remaining_report_charts(sections: list[Any], already_rendered: int) -> int:
+    total = 0
+    for section in sections:
+        if isinstance(section, dict) and isinstance(section.get("charts"), list):
+            total += len(section["charts"])
+    return max(0, total - already_rendered)
+
+
+def int_width(width: str) -> int:
+    if width == "auto":
+        return shutil.get_terminal_size((80, 24)).columns
+    try:
+        return int(width)
+    except ValueError:
+        return 80
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="term_chart.py",
-        description="Render a FactIQ ChartSpec as a terminal chart.",
+        description="Render FactIQ ChartSpec/report JSON as terminal charts.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -438,6 +560,53 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--out", help="Also write the rendered chart to this file")
     p.set_defaults(func=lambda args: print_or_write(render(load_spec(args.spec), args), args.out))
+
+    p = sub.add_parser(
+        "report",
+        help="Print terminal previews for a share_report report object",
+    )
+    p.add_argument(
+        "--report",
+        required=True,
+        help="Report JSON file, share_report args JSON, or '-' for stdin",
+    )
+    p.add_argument(
+        "--type",
+        choices=["auto", "bar", "sparkline", "line", "table"],
+        default="auto",
+        help="Terminal rendering type. auto maps from each report chart_type.",
+    )
+    p.add_argument(
+        "--width",
+        default="80",
+        help="Output width in columns, or 'auto' to read the terminal size.",
+    )
+    p.add_argument("--height", type=int, default=12, help="Plot height for line charts")
+    p.add_argument(
+        "--color",
+        choices=["auto", "always", "never"],
+        default="auto",
+        help="ANSI color mode. auto respects TTY, NO_COLOR, and TERM=dumb.",
+    )
+    p.add_argument(
+        "--charset",
+        choices=["ascii", "unicode-block"],
+        default="ascii",
+        help="Glyph set. ascii is safest; unicode-block is denser.",
+    )
+    p.add_argument(
+        "--max-charts",
+        type=int,
+        default=4,
+        help="Maximum report charts to render in the terminal preview (0 means all).",
+    )
+    p.add_argument("--out", help="Also write the rendered report preview to this file")
+    p.set_defaults(
+        func=lambda args: print_or_write(
+            render_report(load_json_object(args.report, "Report"), args),
+            args.out,
+        )
+    )
     return parser
 
 
