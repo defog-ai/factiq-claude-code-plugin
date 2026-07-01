@@ -351,7 +351,7 @@ def render_line(
             lines.append(f"{' ' * 12}{chunk}")
     legend_parts = []
     for i, s in enumerate(series):
-        symbol = "*" if charset == "ascii" else "•"
+        symbol = points[i % len(points)]
         label = str(s.get("label") or s["key"])
         legend_parts.append(paint(f"{symbol} {label}", i, colors))
     lines.extend(pack_line(legend_parts, "  ", width))

@@ -34,6 +34,19 @@ data questions), the bundled FactIQ MCP server, and the `/factiq:ask` command:
 Then run **`/mcp`** once, pick **factiq**, and complete the browser-based
 Connect flow to authorize the tools (see below).
 
+#### Enable auto-updates
+
+So you always get the latest skill, MCP tools, and commands without
+reinstalling, turn on auto-updates for the marketplace:
+
+1. Run **`/plugin`**.
+2. Select **Marketplaces**.
+3. Select **factiq**.
+4. Toggle **auto-updates** on.
+
+Claude Code will then refresh the plugin automatically whenever this
+marketplace changes.
+
 ### Codex
 
 ```bash
