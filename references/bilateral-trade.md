@@ -46,6 +46,14 @@ The default report shape is 3-4 sections:
 4. **Policy context and caveats.** Current trade agreement status, tariff and
    non-tariff issues, industrial/supply-chain policies, and source asymmetry.
 
+For trade-balance or deficit tables, choose row granularity by window and
+purpose, not by a categorical monthly or yearly default. Keep monthly charts
+for timing and seasonality. Monthly table rows are reasonable for shorter
+multi-year windows, roughly up to 3-5 years, when the story depends on turning
+points; for longer windows, especially 5+ years, prefer annual totals, YTD
+comparisons, latest/prior snapshots, or a few selected turning points so the
+table stays readable.
+
 ## Data workflow
 
 1. Call `get_data_catalog` first and skip schemas listed under

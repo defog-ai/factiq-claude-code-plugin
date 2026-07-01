@@ -222,7 +222,12 @@ local visualizations**). Local-only; never calls the API.
    calls together (multiple tool calls in one turn). Use `get_series` for 1–2
    known ids; `run_sql` with a CASE-WHEN pivot for 3+ series or joins. Keep
    results inside the 50-row cap — aggregate in SQL to the granularity a chart
-   actually needs.
+   actually needs. For report tables, choose row granularity by context:
+   monthly rows can work for shorter multi-year windows, roughly up to 3-5
+   years, when timing, seasonality, or turning points matter; for longer
+   windows, especially 5+ years, usually summarize with annual totals, YTD
+   comparisons, latest/prior snapshots, or selected turning points. Do not
+   default categorically to monthly or yearly rows.
 4. **Compute yourself.** YoY growth, rebasing to an index, per-capita, ratios —
    write your own Python locally on the fetched values. There is no server-side
    code interpreter in this loop.
