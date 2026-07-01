@@ -4,15 +4,16 @@ A plugin for [Claude Code](https://code.claude.com/docs/en/plugins) and
 [Codex](https://github.com/openai/codex) that lets your coding agent answer
 economic and financial data questions using FactIQ's data — catalog search,
 read-only SQL, series lookup, market data, earnings-call search — and publish
-the result as a shareable FactIQ chart or report, or as a bespoke local HTML
-visualization. The agent orchestrates the whole analysis itself; no codebase or
-database access is required, only a FactIQ account.
+the result as a shareable FactIQ chart or report, render a terminal chart
+preview, or build a bespoke local HTML visualization. The agent orchestrates the
+whole analysis itself; no codebase or database access is required, only a
+FactIQ account.
 
 Everything runs through the **FactIQ MCP server** (bundled in `.mcp.json`),
 which both Claude Code and Codex talk to natively over a single OAuth
 connection — discovery, fetching, and publishing alike. There is no API key to
-manage. The one bundled script, `build_viz.py`, is local-only (it builds HTML
-visualizations and never touches the network).
+manage. The bundled local scripts, `term_chart.py` and `build_viz.py`, never
+touch the network.
 
 ## Install
 
@@ -28,7 +29,7 @@ data questions), the bundled FactIQ MCP server, and the `/factiq:ask` command:
 
 | Command | Purpose |
 |---|---|
-| `/factiq:ask <question>` | Run a full analysis and get a shareable chart or report |
+| `/factiq:ask <question>` | Run a full analysis and get a shareable chart, terminal chart, or report |
 
 Then run **`/mcp`** once, pick **factiq**, and complete the browser-based
 Connect flow to authorize the tools (see below).
@@ -105,6 +106,9 @@ covers both data fetching and publishing.
 - `commands/ask.md` — the `/factiq:ask` slash command (Claude Code)
 - `.agents/plugins/marketplace.json` — Codex marketplace entry for
   `codex plugin marketplace add defog-ai/factiq-plugin`
+- `scripts/term_chart.py` — stdlib-only renderer that prints ANSI/ASCII
+  terminal previews from normal FactIQ ChartSpec JSON. It supports bar,
+  sparkline, simple line, and table fallback renderers.
 - `scripts/build_viz.py` — local-only tool to assemble fetched data into a
   self-contained HTML viz and screenshot it headless for iteration. `save`
   copies a tool result's raw JSON out of the harness transcript to disk (no
