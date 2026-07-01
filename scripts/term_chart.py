@@ -22,6 +22,8 @@ from typing import Any
 ASCII_LEVELS = ".:-=+*#%@"
 BLOCK_LEVELS = "▁▂▃▄▅▆▇█"
 ANSI_COLORS = [31, 34, 32, 35, 36, 33, 90]
+ANSI_BOLD = 1
+ANSI_DIM = 2
 
 
 def fail(message: str, code: int = 1) -> None:
@@ -127,6 +129,13 @@ def paint(text: str, index: int, enabled: bool) -> str:
     return f"\033[{code}m{text}\033[0m"
 
 
+def style(text: str, enabled: bool, *codes: int) -> str:
+    if not enabled or not codes:
+        return text
+    joined = ";".join(str(code) for code in codes)
+    return f"\033[{joined}m{text}\033[0m"
+
+
 def load_spec(path: str) -> dict[str, Any]:
     try:
         if path == "-":
@@ -177,9 +186,9 @@ def chart_data(spec: dict[str, Any]) -> tuple[list[dict[str, Any]], str, list[di
     return clean_rows, str(x_key), clean_series
 
 
-def header(spec: dict[str, Any], width: int) -> list[str]:
+def header(spec: dict[str, Any], width: int, colors: bool) -> list[str]:
     title = str(spec.get("title") or "FactIQ chart")
-    return [ellipsize(title, width), ""]
+    return [style(ellipsize(title, width), colors, ANSI_BOLD), ""]
 
 
 def choose_type(spec: dict[str, Any], rows: list[dict[str, Any]], series: list[dict[str, Any]]) -> str:
@@ -204,7 +213,7 @@ def render_bar(
     colors: bool,
     charset: str,
 ) -> str:
-    lines = header(spec, width)
+    lines = header(spec, width, colors)
     entries: list[tuple[str, str, float, int]] = []
     for row in rows:
         label = parse_dateish(row.get(x_key, ""))
@@ -259,7 +268,7 @@ def render_sparkline(
     colors: bool,
     charset: str,
 ) -> str:
-    lines = header(spec, width)
+    lines = header(spec, width, colors)
     label_width = min(22, max(8, max(len(str(s.get("label") or s["key"])) for s in series)))
     spark_width = max(10, width - label_width - 24)
 
@@ -303,7 +312,7 @@ def render_line(
     colors: bool,
     charset: str,
 ) -> str:
-    lines = header(spec, width)
+    lines = header(spec, width, colors)
     plot_width = max(12, width - 13)
     plot_height = max(4, height)
     vals_by_series = [[number(row.get(s["key"])) for row in rows] for s in series]
@@ -370,26 +379,35 @@ def render_table(
     x_key: str,
     series: list[dict[str, Any]],
     width: int,
+    colors: bool,
 ) -> str:
-    lines = header(spec, width)
+    lines = header(spec, width, colors)
     keys = [x_key] + [str(s["key"]) for s in series]
     labels = [x_key] + [str(s.get("label") or s["key"]) for s in series]
     col_count = len(keys)
     gap = 2 * (col_count - 1)
     col_width = max(6, (width - gap) // col_count)
     widths = [col_width] * col_count
-    lines.append("  ".join(pad(ellipsize(label, widths[i]), widths[i]) for i, label in enumerate(labels)))
-    lines.append("  ".join("-" * w for w in widths))
+    header_cells = []
+    for i, label in enumerate(labels):
+        text = ellipsize(label, widths[i])
+        text = style(text, colors, ANSI_DIM) if i == 0 else paint(text, i - 1, colors)
+        header_cells.append(pad(text, widths[i]))
+    lines.append("  ".join(header_cells))
+    lines.append(style("  ".join("-" * w for w in widths), colors, ANSI_DIM))
     for row in rows[: min(len(rows), 12)]:
         cells = []
         for i, key in enumerate(keys):
             val = row.get(key)
             num = number(val)
             text = fmt_num(num) if num is not None and key != x_key else parse_dateish(val)
-            cells.append(pad(ellipsize(text, widths[i]), widths[i]))
+            text = ellipsize(text, widths[i])
+            if i > 0 and num is not None:
+                text = paint(text, i - 1, colors)
+            cells.append(pad(text, widths[i]))
         lines.append("  ".join(cells))
     if len(rows) > 12:
-        lines.append(f"... {len(rows) - 12} more rows")
+        lines.append(style(f"... {len(rows) - 12} more rows", colors, ANSI_DIM))
     return "\n".join(lines)
 
 
@@ -416,7 +434,7 @@ def render(spec: dict[str, Any], args: argparse.Namespace) -> str:
             return render_sparkline(spec, rows, x_key, series, width_int, colors, charset)
         return render_line(spec, rows, x_key, series, width_int, args.height, colors, charset)
     if selected == "table":
-        return render_table(spec, rows, x_key, series, width_int)
+        return render_table(spec, rows, x_key, series, width_int, colors)
     fail(f"Unsupported --type {selected!r}.")
 
 
@@ -477,6 +495,7 @@ def render_report(report_payload: dict[str, Any], args: argparse.Namespace) -> s
     outputs: list[str] = []
     chart_count = 0
     max_charts = args.max_charts
+    colors = color_enabled(args.color)
 
     for section_index, section in enumerate(sections, start=1):
         if not isinstance(section, dict):
@@ -501,7 +520,11 @@ def render_report(report_payload: dict[str, Any], args: argparse.Namespace) -> s
                 prefix = f"{heading} / chart {chart_index}"
             rendered = render(spec, args)
             rule = "-" * min(len(prefix), max(8, int_width(args.width)))
-            outputs.append(f"{prefix}\n{rule}\n{rendered}")
+            outputs.append(
+                f"{style(prefix, colors, ANSI_BOLD)}\n"
+                f"{style(rule, colors, ANSI_DIM)}\n"
+                f"{rendered}"
+            )
 
     if not outputs:
         return "No report charts could be rendered as terminal previews."
