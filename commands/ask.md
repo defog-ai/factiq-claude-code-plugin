@@ -45,16 +45,16 @@ compute, all via the MCP tools) and finish per the mode:
 
 - **Quick chart** → build a ChartSpec (`references/chart-spec.md`), save it to
   JSON, publish with the `share_chart` tool, run
-  `python3 scripts/term_chart.py render --spec <file> --charset ascii --color never`,
+  `python3 scripts/term_chart.py render --spec <file> --charset ascii --color auto`,
   and return the share URL, terminal preview, and a short narrative of what the
   data shows.
 - **Terminal chart** → build a ChartSpec (`references/chart-spec.md`), save it
-  to JSON, run `python3 scripts/term_chart.py render --spec <file> --charset ascii --color never`,
+  to JSON, run `python3 scripts/term_chart.py render --spec <file> --charset ascii --color auto`,
   and return the rendered output plus a short narrative without publishing.
 - **Detailed report** → follow the skill's **Detailed reports** section and
   `references/report-spec.md`, save the report object to JSON, publish with the
   `share_report` tool, run
-  `python3 scripts/term_chart.py report --report <file> --charset ascii --color never`,
+  `python3 scripts/term_chart.py report --report <file> --charset ascii --color auto`,
   and return the share URL, terminal previews, and the report's key findings.
 
 For report-mode questions that span multiple topics, companies, or data sources,
