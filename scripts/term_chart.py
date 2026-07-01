@@ -316,7 +316,7 @@ def render_line(
         low -= 1
 
     canvas: list[list[list[int]]] = [[[] for _ in range(plot_width)] for _ in range(plot_height)]
-    points = ".o" if charset == "ascii" else "•◆"
+    points = "*o" if charset == "ascii" else "•◆"
 
     for si, vals in enumerate(vals_by_series):
         last: tuple[int, int] | None = None
@@ -357,7 +357,7 @@ def render_line(
     legend_parts = []
     legend_budget = max(8, width // max(1, len(series)) - 2)
     for i, s in enumerate(series):
-        symbol = "." if charset == "ascii" else "•"
+        symbol = "*" if charset == "ascii" else "•"
         label = ellipsize(str(s.get("label") or s["key"]), legend_budget - 2)
         legend_parts.append(paint(f"{symbol} {label}", i, colors))
     lines.append("  ".join(legend_parts))
