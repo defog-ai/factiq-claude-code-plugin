@@ -169,7 +169,7 @@ Our ingestion pipelines do the hard work of flattening each source's bespoke
 format — BLS flat files, BEA APIs, customs records, RBI releases — into this
 shape, so the agent learns the model once and it works everywhere. Discovery,
 pivoting, and filtering follow the same patterns across all ~20 schemas; the
-recipes live in [`references/sql-guide.md`](references/sql-guide.md).
+recipes live in [`references/data/sql-guide.md`](references/data/sql-guide.md).
 
 ### What's in the warehouse
 
@@ -181,7 +181,7 @@ recipes live in [`references/sql-guide.md`](references/sql-guide.md).
 | South Korea | KCS customs (HS-level trade) |
 | Global | IMF, World Bank, Singapore SingStat, live market data (quotes, fundamentals, FX, commodities) |
 
-`references/schemas.md` has the static overview; the `get_data_catalog` tool
+`references/data/schemas.md` has the static overview; the `get_data_catalog` tool
 returns the live, authoritative version.
 
 ## Repo map
@@ -191,16 +191,23 @@ Where the behavior lives — the files contributors will touch:
 - `skills/factiq/SKILL.md` — the skill definition and single source of truth
   for the workflow. Auto-discovered by both Claude Code and Codex from the
   `skills/` directory
-- `references/` — SQL idioms, ChartSpec/report formats, domain playbooks
-  (monetary policy, bilateral trade, bilateral economic policy, fiscal-policy
-  revenue), the bespoke-viz guide, and the dataset schema overview
+- `references/data/` — the data layer: SQL idioms (`sql-guide.md`) and the
+  dataset schema overview (`schemas.md`)
+- `references/output/` — publishing formats: ChartSpec (`chart-spec.md`),
+  report JSON (`report-spec.md`), and the bespoke-viz guide (`viz-guide.md`)
+- `references/report-patterns/` — domain playbooks (monetary policy,
+  bilateral trade, bilateral economic policy, fiscal-policy revenue, business
+  formation). `report-patterns/README.md` is the single entry point SKILL.md
+  references: it teaches the dialectical method (thesis → antithesis →
+  synthesis) all reports follow and routes each domain to its playbook, so
+  adding a playbook doesn't touch SKILL.md
 - `commands/ask.md` — the `/factiq:ask` slash command (Claude Code)
 - `scripts/term_chart.py` — stdlib-only renderer that prints ANSI/ASCII
   terminal previews from FactIQ ChartSpec JSON and `share_report` report
   objects. It supports bar, simple line, and table fallback renderers
 - `scripts/build_viz.py` — local-only tool that assembles fetched data into a
   self-contained HTML viz and screenshots it headless for iteration; usage in
-  [`references/viz-guide.md`](references/viz-guide.md)
+  [`references/output/viz-guide.md`](references/output/viz-guide.md)
 - `assets/viz-shell.html` — starting-point shell for bespoke visualizations
 
 Plugin plumbing — you shouldn't need to touch these:
@@ -220,23 +227,34 @@ Open an issue or a pull request.
 ### Bespoke skills (domain playbooks) — the highest-leverage contribution
 
 The most valuable thing you can add is a **domain playbook**: a reference file
-that teaches the agent how to answer a whole class of questions well. The
-existing ones live in `references/` and are the pattern to follow:
+that teaches the agent how to answer a whole class of questions well. A
+playbook is a domain's dialectic written down in advance — the headline
+reading a question invites, the contradictions a competent skeptic would
+raise against it, and the SQL to fetch both (see the method in
+[`references/report-patterns/README.md`](references/report-patterns/README.md)).
+The existing ones live in
+[`references/report-patterns/`](references/report-patterns/) and are the
+pattern to follow:
 
-- [`references/monetary-policy.md`](references/monetary-policy.md) — central
-  bank policy stance, administered rates, OMO, balance-sheet context
-- [`references/bilateral-trade.md`](references/bilateral-trade.md) —
+- [`monetary-policy.md`](references/report-patterns/monetary-policy.md) —
+  central bank policy stance, administered rates, OMO, balance-sheet context
+- [`bilateral-trade.md`](references/report-patterns/bilateral-trade.md) —
   country-pair trade trends, product drivers, mirror-statistics caveats
-- [`references/fiscal-policy-revenue.md`](references/fiscal-policy-revenue.md)
+- [`fiscal-policy-revenue.md`](references/report-patterns/fiscal-policy-revenue.md)
   — government receipts, tax composition, distributional detail
 
 A good playbook contains:
 
 1. **A trigger** — which question shapes it covers ("latest trend in trade
-   between A and B", "explain the Fed's stance"), wired into `SKILL.md` so the
-   agent reads the playbook *before* fetching.
-2. **Required coverage** — the dimensions a complete answer must address, so
-   the agent doesn't stop at the first obvious chart.
+   between A and B", "explain the Fed's stance"), added as a row to the
+   routing table in
+   [`references/report-patterns/README.md`](references/report-patterns/README.md)
+   so the agent reads the playbook *before* fetching. `SKILL.md` points at
+   that router, so it doesn't need to change.
+2. **Required coverage** — the domain's canonical antitheses: the
+   counter-checks a complete answer must fetch (mirror statistics, real vs
+   nominal, composition, the counterparty's ledger), so the agent doesn't
+   stop at the first obvious chart.
 3. **Ready SQL templates** — tested queries against the three-table schema for
    the key computations (latest-month YoY, YTD comparisons, top-N drivers).
 4. **Caveats and guardrails** — unit normalization, base-year changes,
@@ -251,9 +269,9 @@ macro-risk snapshots.
 - **Terminal renderers** — new chart types or better ASCII/ANSI output in
   `scripts/term_chart.py` (keep it stdlib-only).
 - **Viz recipes** — reusable patterns for `build_viz.py` and
-  `references/viz-guide.md`.
-- **SQL idioms and pitfalls** — additions to `references/sql-guide.md` from
-  real usage.
+  `references/output/viz-guide.md`.
+- **SQL idioms and pitfalls** — additions to `references/data/sql-guide.md`
+  from real usage.
 - **Docs and fixes** — anything that makes the agent's first attempt land.
 
 Test a playbook by running the questions it targets end-to-end through the

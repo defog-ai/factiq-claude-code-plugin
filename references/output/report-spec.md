@@ -49,7 +49,7 @@ model name.
 simple tabular format below. The other types pass through with the in-house
 agent's full hydrated config structure, which is not documented here. For a
 geographic finding, publish the map as its own `share_chart` (fully supported
-— see `references/chart-spec.md`, **Maps**) and reference its share link from
+— see `references/output/chart-spec.md`, **Maps**) and reference its share link from
 the section narrative, rather than embedding an undocumented map structure in
 the report.
 
@@ -104,7 +104,7 @@ metrics you computed (YoY, indexed, ratios) and `web` for web research.
 
 ### Lineage
 
-Same DAG format as ChartSpec lineage (see `references/chart-spec.md` —
+Same DAG format as ChartSpec lineage (see `references/output/chart-spec.md` —
 nodes with `id`, `type`, `title`, `summary`, `detail`, `inputs`, optional
 `code`/`code_language`/`series_refs`, exactly one `output` node referenced
 by `root_id`). Record the SQL and computations you actually ran. A chart
@@ -254,37 +254,12 @@ summary.
 
 ## Specialized report patterns
 
-- **Bilateral merchandise trade.** For questions like "latest trend in trade
-  between A and B", read `bilateral-trade.md` and default to a compact report,
-  not a single latest-month chart. Include latest month, same-month YoY, YTD
-  versus prior YTD, prior full-year context, trade balance, product-driver
-  tables for both directions, policy context from current official sources, and
-  mirror-statistics caveats.
-- **Bilateral economic policy.** For broad prompts like "compare A and B trade
-  policy" or "discuss A and B's joint economic policy", read
-  `bilateral-economic-policy.md` before authoring the report. Define the full
-  concept, cover the relevant dimensions, and do not let merchandise trade
-  stand in for services, FDI/investment, tariff and non-tariff barriers,
-  bilateral talks, sector strategy, or third-country policy pressure.
-- **Monetary policy.** For questions about central-bank policy stance,
-  monetary policy over time, implementation tools, OMO, reserve liquidity,
-  transmission, FX intervention, or sterilization, read `monetary-policy.md`
-  before authoring the report. Do not stop at policy rates, inflation, and
-  unemployment: include administered rates such as IORB where relevant, current
-  open market operations or data gaps, balance-sheet and reserves context,
-  communication, transmission channels, FX intervention checks, and clear
-  sterilized/unsterilized intervention caveats.
-- **Fiscal-policy revenue.** For questions about tax revenue, non-tax revenue,
-  government receipts, revenue by income bracket or corporate size, or whether
-  a government's tax/fiscal policy matched campaign promises, read
-  `fiscal-policy-revenue.md` before authoring the report. Do not stop at an
-  aggregate tax-versus-non-tax split: include major tax sources,
-  distributional tax detail where official data exist, named non-tax
-  components, a sourced policy-promise alignment note when relevant, and clear
-  timing/data-gap caveats.
-- **Business formation by industry.** For Census Business Formation Statistics
-  questions about applications by industry/NAICS, read
-  `business-formation-statistics.md` before authoring the report. Do not stop
-  at ranked tables: explain likely economic drivers, entry barriers,
-  regulation, capital intensity, incumbents, concentration metrics where
-  available, microeconomic and policy implications, and BFS caveats.
+Broad analytical questions follow the dialectical method in
+`references/report-patterns/README.md` — thesis, antithesis, synthesis — and
+covered domains (bilateral trade, bilateral economic policy, monetary policy,
+fiscal-policy revenue, business formation) must additionally meet the
+required coverage of the playbook that README routes to. Structurally: the
+summary and chart titles carry the synthesis, sections stage the headline
+reading against its strongest fetched contradiction, and the closing section
+or methodology notes name what to watch — the series that would overturn the
+reading.

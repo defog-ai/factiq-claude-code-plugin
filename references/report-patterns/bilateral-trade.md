@@ -13,7 +13,7 @@ tariff and non-tariff barriers, bilateral talks, sector strategy, and
 third-country policy pressure. Use this file only for the merchandise-goods
 portion of those reports.
 
-Read `report-spec.md` before authoring the report object. This file covers the
+Read `references/output/report-spec.md` before authoring the report object. This file covers the
 extra data work and caveats that bilateral trade reports need.
 
 ## Minimum answer
