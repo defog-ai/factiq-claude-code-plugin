@@ -6,11 +6,15 @@ description: >
   energy, USDA ERS, BTS transport), international data (China NBS, China
   customs, India MOSPI/RBI/trade, Singapore, IMF, World Bank), stock quotes
   and fundamentals, commodities/forex, earnings-call intelligence, and
-  satellite-derived signals (fire detections/crop burning, NO2 industrial
-  activity, monsoon rainfall, heatwaves, soil moisture — by country, state, or
+  satellite-derived data: nighttime lights by country and state, lake and
+  reservoir water levels, daily shipping and port activity (chokepoint
+  transits, port calls, seaborne trade estimates), plus on-demand signals
+  (fire detections/crop burning, NO2 industrial activity, crop-condition
+  NDVI, monsoon rainfall, heatwaves, soil moisture — by country, state, or
   bounding box). Use
   when the user asks about unemployment, inflation, GDP, trade flows, energy,
   wages, markets, stubble burning, air quality, monsoon or drought conditions,
+  nighttime lights, reservoir levels, shipping or chokepoint traffic,
   or wants a shareable economic chart or map (country choropleths,
   state/province choropleths, coordinate bubble maps), a terminal chart preview,
   a full multi-section research report, or a bespoke custom visualization or
@@ -204,6 +208,10 @@ local visualizations**). Local-only; never calls the API.
    prefer short stems like `rare`, not `rare earth`) or exploration SQL
    (`run_sql` with `explore=true`) on the `series` and `dimensions` tables.
    For multi-source stories, actually fetch data from 2+ schemas.
+   Satellite-derived series live in two schemas: `portwatch` (daily shipping —
+   chokepoints, ports, country trade estimates) and `satellite` (nighttime
+   lights by state, lake/reservoir water levels) — see `references/schemas.md`
+   for routing and `references/satellite.md` for the on-demand geo tool.
 
    For broad monetary-policy questions, read `references/monetary-policy.md`
    before fetching; those questions need policy stance, administered rates,
