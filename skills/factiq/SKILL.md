@@ -48,7 +48,7 @@ Five output modes:
   from the same ChartSpec. Default for a single metric over time or a
   comparison across categories or entities. When geography is the finding this includes **maps**:
   choropleths by country or state/province and coordinate bubbles — see
-  `references/chart-spec.md` (**Maps**) for the format and region-name rules
+  `references/output/chart-spec.md` (**Maps**) for the format and region-name rules
   (the terminal preview degrades to a ranked table).
 - **Terminal chart** (`term_chart.py`) — an ANSI/ASCII preview without a share
   link. Use only when the user explicitly asks for terminal-only, ASCII-only, or
@@ -57,11 +57,10 @@ Five output modes:
   and charts + methodology, rendered on FactIQ's share-report page exactly like
   the in-house agent's reports, plus inline terminal previews of its charts. For
   broad or analytical questions. See **Detailed reports** below. Broad
-  bilateral trade questions such as "latest trend in trade between A and B",
-  broad bilateral economic-policy comparisons such as "compare A and B trade
-  policy", broad monetary-policy questions such as "explain the Fed's current
-  monetary policy stance", and broad fiscal-policy revenue questions default
-  here unless the user explicitly asks for only a quick chart.
+  questions in a covered domain (bilateral trade, economic policy, monetary
+  policy, fiscal revenue, business formation — see
+  `references/report-patterns/README.md`) default here unless the user
+  explicitly asks for only a quick chart.
 - **Bespoke local viz** (`build_viz.py`) — a self-contained HTML file you
   author freely and save locally, not published to FactIQ. Use when the answer
   needs something the ChartSpec can't express: a custom layout, a multi-panel
@@ -211,27 +210,17 @@ local visualizations**). Local-only; never calls the API.
    (`run_sql` with `explore=true`) on the `series` and `dimensions` tables.
    For multi-source stories, actually fetch data from 2+ schemas.
 
-   For broad monetary-policy questions, read `references/monetary-policy.md`
-   before fetching; those questions need policy stance, administered rates,
-   implementation tools such as OMO and standing facilities, liquidity and
-   balance-sheet context, transmission channels, FX intervention and
-   sterilization checks, and explicit data-gap notes. For broad bilateral
-   merchandise-trade questions, read `references/bilateral-trade.md` before
-   fetching; those questions need trend comparisons, YTD/annual context,
-   product-driver tables, source caveats, and current policy context. For
-   bilateral economic-policy or trade-policy comparisons, read
-   `references/bilateral-economic-policy.md` first so the report covers the
-   whole concept, including services, FDI/investment, policy talks, barriers,
-   and relevant third-country pressure. For fiscal-policy revenue questions,
-   read `references/fiscal-policy-revenue.md` before fetching; those questions
-   need aggregate receipts, tax-source composition, distributional tax detail
-   where available, non-tax component detail, policy-promise context, and
-   explicit data-gap notes. For Census Business Formation Statistics questions
-   about applications by industry/NAICS, read
-   `references/business-formation-statistics.md` before fetching; those
-   reports need ranked application facts, likely economic drivers, entry
-   barriers, concentration checks where available, microeconomic and policy
-   implications, and explicit caveats.
+   **Domain report patterns.** If the question is broad and analytical —
+   policy, trade, revenue, investment analysis, "what's driving X" — read
+   `references/report-patterns/README.md` **before fetching**. It teaches the
+   dialectical method every report follows (thesis: the headline reading;
+   antithesis: the strongest contradiction, fetched, not footnoted;
+   synthesis: one claim that explains both) and routes covered domains
+   (bilateral trade, bilateral economic policy, monetary policy,
+   fiscal-policy revenue, business formation) to a playbook of that domain's
+   canonical antitheses with ready SQL. For domains without a playbook, apply
+   the method directly. Either way it changes what you fetch, not just how
+   you write it up.
 
    For report-mode questions covering multiple topics, companies, or data
    sources, consider decomposing the research into parallel subagents — see
@@ -256,14 +245,14 @@ local visualizations**). Local-only; never calls the API.
    value, reply with a single sentence stating the number, its period, and the
    source — no ChartSpec, no `share_chart`, no terminal render. Quick-chart mode:
    build a ChartSpec object
-   (see `references/chart-spec.md`) with wide-format data rows, save it to JSON,
+   (see `references/output/chart-spec.md`) with wide-format data rows, save it to JSON,
    call `share_chart`, then run `term_chart.py render`; return the `share_url`
    and paste the terminal preview into your reply inside a triple-backtick code
    block. Terminal-chart-only mode: build the same ChartSpec, save it to JSON,
    run `term_chart.py render`, and paste the terminal output into your reply
    without publishing only if the user explicitly requested no share link.
    Report mode: build a report object (see
-   `references/report-spec.md` and **Detailed reports** below), save it to JSON,
+   `references/output/report-spec.md` and **Detailed reports** below), save it to JSON,
    call `share_report`, then run `term_chart.py report`; return the `share_url`
    and paste the terminal previews into your reply inside a triple-backtick code
    block. If a publish validation error occurs, fix and republish before
@@ -344,11 +333,11 @@ them before proceeding to assembly.
 ### Report assembler subagent
 
 After all research is complete, spawn a single report-assembler agent. Its
-prompt must contain two things: (1) the full content of `references/report-spec.md`
+prompt must contain two things: (1) the full content of `references/output/report-spec.md`
 so the spec is in context, not behind a file read that might be skipped, and
 (2) all the research findings from the previous step.
 
-Before spawning the assembler, read `references/report-spec.md` yourself with
+Before spawning the assembler, read `references/output/report-spec.md` yourself with
 the Read tool. Then embed its entire content in the assembler's prompt.
 
 Agent prompt template:
@@ -360,8 +349,8 @@ data discovery or fetching — all data is provided below.
 
 USER QUESTION: {original_question}
 
-=== REPORT SPEC (from references/report-spec.md) ===
-{paste the full content of references/report-spec.md here}
+=== REPORT SPEC (from references/output/report-spec.md) ===
+{paste the full content of references/output/report-spec.md here}
 === END REPORT SPEC ===
 
 === RESEARCH FINDINGS ===
@@ -427,7 +416,7 @@ A report is a public, fully rendered FactIQ research page: a bulleted summary
 up top, then sections that pair narrative with charts, then methodology notes.
 You author the whole thing — every chart's data rows, every narrative claim —
 from data you actually fetched in this session. The JSON format, per-chart
-fields, and a worked example live in `references/report-spec.md`. For reliable publishing, use a dedicated report-assembler subagent with the spec loaded in its prompt — see **Subagent orchestration**.
+fields, and a worked example live in `references/output/report-spec.md`. For reliable publishing, use a dedicated report-assembler subagent with the spec loaded in its prompt — see **Subagent orchestration**.
 
 Ground rules:
 
@@ -446,42 +435,14 @@ Ground rules:
   step touched in `series_refs`, not a single representative one.
 - **Don't pad.** If the data only supports one chart, publish a quick chart
   instead of inflating a report.
-- **Bilateral trade gets report structure.** Treat "latest trend in trade
-  between A and B" as a compact report unless the user explicitly asks for only
-  a quick chart. Follow `references/bilateral-trade.md`: latest month, YoY,
-  YTD, annual context, balance, product drivers for both directions, policy
-  context, and mirror-statistics caveats.
-- **Bilateral policy gets concept coverage.** Treat questions like "compare A
-  and B trade policy" or "discuss A and B's joint economic policy" as broad
-  policy reports, not goods-only trade reports. Follow
-  `references/bilateral-economic-policy.md`: define the economic concept, cover
-  relevant dimensions such as goods, services, FDI/investment, tariff and
-  non-tariff barriers, active bilateral talks, sector strategy, third-country
-  pressure, and explicit data gaps.
-- **Monetary policy gets implementation coverage.** Treat questions about a
-  central bank's policy stance, monetary policy over time, OMO, reserve
-  liquidity, policy corridors, transmission, or FX intervention as broad
-  monetary-policy reports unless the user explicitly asks for one narrow rate
-  chart. Follow `references/monetary-policy.md`: include the policy target and
-  market rate, administered rates such as IORB where relevant, OMO and standing
-  facilities, balance-sheet and reserve conditions, communications, macro
-  backdrop, FX channel, intervention/sterilization checks, and data-gap notes.
-- **Fiscal-policy revenue gets layered coverage.** Treat questions about tax
-  receipts, non-tax revenue, revenue by payer group, or tax/fiscal policy under
-  a government as broad fiscal-policy reports unless the user explicitly asks
-  for one aggregate chart. Follow `references/fiscal-policy-revenue.md`: start
-  with aggregate receipts, then add major tax sources, income-bracket and
-  corporate-size detail where official data exist, named non-tax components,
-  a sourced policy-promise alignment note when relevant, and explicit timing
-  or availability caveats.
-- **Business formation by industry gets interpretation.** Treat Census BFS
-  questions about applications by industry/NAICS as industry-analysis reports,
-  not ranked tables, unless the user explicitly asks for only a ranking.
-  Follow `references/business-formation-statistics.md`: show application facts,
-  explain likely drivers for high and low industries, discuss entry barriers,
-  regulation, capital intensity, incumbents, concentration metrics where
-  available, microeconomic and policy implications, and distinguish measured
-  findings from inferred explanations.
+- **Broad analytical questions get the dialectic.** Follow the
+  thesis → antithesis → synthesis method in
+  `references/report-patterns/README.md`: sections that only restate the
+  headline reading are an unfinished report. Covered domains (bilateral
+  trade, bilateral economic policy, monetary policy, fiscal-policy revenue,
+  business formation) must additionally meet the required coverage in the
+  playbook the README routes to — do not reduce them to the easiest single
+  chart.
 
 The `share_report` tool validates the report against FactIQ's real chart
 schemas server-side, stores it as a completed public run, and returns the
@@ -499,7 +460,7 @@ annotated narrative, a novel encoding, or just fine visual control — build it
 yourself as a self-contained local HTML file. There is no spec and no fixed
 chart-type list: you author the HTML/JS (ECharts, D3, Canvas, SVG, WebGL),
 inject the data you already fetched, then render and iterate. Read
-`references/viz-guide.md` before starting — it covers technique selection, the
+`references/output/viz-guide.md` before starting — it covers technique selection, the
 data contract, and the legibility checklist.
 
 The tool is `scripts/build_viz.py` (local-only — it never calls the API):
@@ -524,7 +485,7 @@ look → fix**:
    python3 scripts/build_viz.py save --match "korea_customs" --out /tmp/korea.json
    ```
    The file holds the tool's own `{columns, results, …}` payload — see
-   `references/viz-guide.md` (**Saving data without retyping**) for `--list`,
+   `references/output/viz-guide.md` (**Saving data without retyping**) for `--list`,
    `--index`, and the fallback when a transcript can't be found. Because the MCP
    caps results at 50 rows, this is context-cheap; aggregate or window in SQL to
    get exactly the rows the viz needs.
@@ -575,12 +536,12 @@ payload from the transcript so you never retype the rows.
 - **SQL errors** come back in the tool result as an `error` (syntax errors,
   timeouts, bad column names). Revise the query and rerun.
 - **Zero rows** — your filter was too narrow. Broaden it yourself (see
-  `references/sql-guide.md`). `auto_retry=true` opts into a server-side LLM
+  `references/data/sql-guide.md`). `auto_retry=true` opts into a server-side LLM
   reviser, but you can usually revise better and cheaper yourself.
 - **SQL timeout** — statements are capped at 30s. Filter on indexed columns
   (`series_id`, `dataset_code`) instead of scanning titles, and never
   pattern-match `series_id` on `data_points` — resolve ids from `series` first
-  (see the pitfall in `references/sql-guide.md`).
+  (see the pitfall in `references/data/sql-guide.md`).
 - **Publishing validation error** — `share_chart` / `share_report` validate the
   payload against FactIQ's real chart schemas and return a tool error naming the
   failing field paths (e.g. `sections[1].charts[0].x_column`). Fix the named
@@ -588,36 +549,29 @@ payload from the transcript so you never retype the rows.
 
 ## References
 
-- `references/sql-guide.md` — table structure, query idioms, pitfalls
-  (frequency literals, national vs sub-national, pivots, tabular data).
-- `references/chart-spec.md` — ChartSpec format, chart-type selection, a
-  worked `share_chart` example.
-- `references/report-spec.md` — report JSON format for `share_report`:
-  sections, per-chart fields, sources/lineage authoring, limits, a worked
-  example.
-- `references/bilateral-trade.md` — report workflow and SQL templates for
-  country-pair trade questions: monthly totals, latest/YTD/annual comparisons,
-  HS product drivers, value-vs-quantity guardrails, source caveats, and policy
-  context.
-- `references/bilateral-economic-policy.md` — report pattern for broad
-  country-pair economic-policy and trade-policy comparisons: concept coverage,
-  services and FDI/investment checks, barriers, bilateral talks, sector
-  strategy, third-country policy pressure, and data-gap disclosure.
-- `references/monetary-policy.md` — report pattern for monetary-policy
-  questions: policy stance, administered rates, OMO and standing facilities,
-  balance-sheet and reserve liquidity, transmission channels, FX intervention
-  and sterilization checks, and operating-framework caveats.
-- `references/fiscal-policy-revenue.md` — report pattern for government
-  revenue and fiscal-policy questions: aggregate tax/non-tax receipts, tax
-  source composition, income-bracket and corporate-size distributional checks,
-  non-tax component detail, campaign-promise alignment, and data-gap caveats.
-- `references/business-formation-statistics.md` — report pattern for Census
-  Business Formation Statistics and industry/NAICS application questions:
-  application facts, likely economic drivers, entry barriers, concentration
-  checks, microeconomic and policy implications, and BFS caveats.
-- `references/viz-guide.md` — bespoke local HTML visualizations with
-  `build_viz.py`: the assemble/render loop, the `DATA` contract, technique
-  selection (ECharts/D3/Canvas/WebGL), a legibility checklist, starter recipes.
-- `references/schemas.md` — what lives in each schema. The `get_data_catalog`
-  tool is the live, authoritative version; `search_datasets` / `describe_dataset`
-  drill into individual datasets on demand.
+**`references/data/`** — the data layer:
+
+- `schemas.md` — what lives in each schema. The `get_data_catalog` tool is the
+  live, authoritative version; `search_datasets` / `describe_dataset` drill
+  into individual datasets on demand.
+- `sql-guide.md` — table structure, query idioms, pitfalls (frequency
+  literals, national vs sub-national, pivots, tabular data).
+
+**`references/output/`** — the publishing formats:
+
+- `chart-spec.md` — ChartSpec format, chart-type selection, a worked
+  `share_chart` example.
+- `report-spec.md` — report JSON format for `share_report`: sections,
+  per-chart fields, sources/lineage authoring, limits, a worked example.
+- `viz-guide.md` — bespoke local HTML visualizations with `build_viz.py`: the
+  assemble/render loop, the `DATA` contract, technique selection
+  (ECharts/D3/Canvas/WebGL), a legibility checklist, starter recipes.
+
+**`references/report-patterns/`** — how to think about broad analytical
+questions. Start at `report-patterns/README.md`: it teaches the dialectical
+method (thesis → antithesis → synthesis) that every report follows and routes
+covered domains (bilateral trade, bilateral economic policy, monetary policy,
+fiscal-policy revenue, business formation, and any added later) to a playbook
+of that domain's canonical antitheses with ready SQL. For uncovered domains —
+investment analysis, general macro — the README shows how to apply the method
+directly.

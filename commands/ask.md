@@ -43,16 +43,18 @@ more of their tokens and FactIQ tool quota.
 Then follow the skill's orchestration workflow (catalog → discover → fetch →
 compute, all via the MCP tools) and finish per the mode:
 
-- **Quick chart** → build a ChartSpec (`references/chart-spec.md`), save it to
+- **Quick chart** → build a ChartSpec (`references/output/chart-spec.md`), save it to
   JSON, publish with the `share_chart` tool, run
   `python3 scripts/term_chart.py render --spec <file> --charset ascii --color auto`,
   and return the share URL, terminal preview, and a short narrative of what the
   data shows.
-- **Terminal chart** → build a ChartSpec (`references/chart-spec.md`), save it
+- **Terminal chart** → build a ChartSpec (`references/output/chart-spec.md`), save it
   to JSON, run `python3 scripts/term_chart.py render --spec <file> --charset ascii --color auto`,
   and return the rendered output plus a short narrative without publishing.
 - **Detailed report** → follow the skill's **Detailed reports** section and
-  `references/report-spec.md`, save the report object to JSON, publish with the
+  `references/output/report-spec.md` (for covered domains, also the pattern
+  file `references/report-patterns/README.md` routes to), save the report
+  object to JSON, publish with the
   `share_report` tool, run
   `python3 scripts/term_chart.py report --report <file> --charset ascii --color auto`,
   and return the share URL, terminal previews, and the report's key findings.

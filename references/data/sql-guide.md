@@ -126,7 +126,7 @@ can't find the national aggregate, say so rather than substituting.
 ## HS trade datasets
 
 For broad bilateral merchandise-trade questions, use
-`references/bilateral-trade.md`; it has the report trigger and ready SQL
+`references/report-patterns/bilateral-trade.md`; it has the report trigger and ready SQL
 templates for monthly totals, latest-month YoY, YTD YoY, annual totals, and top
 HS product drivers.
 
