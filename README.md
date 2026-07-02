@@ -1,6 +1,6 @@
-# FactIQ Plugin
+# FactIQ - a realtime updated finance and economy database for AI Agents
 
-Turn your coding agent into an finance and economy analyst. This plugin for
+Turn your agent into an finance and economy analyst. This plugin for
 [Claude Code](https://code.claude.com/docs/en/plugins) and
 [Codex](https://github.com/openai/codex) gives the agent direct access to
 FactIQ's warehouse of official statistics — SEC filings, US, China, India, Korea, IMF,
