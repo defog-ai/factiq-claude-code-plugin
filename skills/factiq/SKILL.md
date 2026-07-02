@@ -242,8 +242,8 @@ local visualizations**). Local-only; never calls the API.
 5. **Recent market data.** The DB lags for very recent market/price data — use
    `get_market_data` for current quotes, commodities, and FX.
 6. **Satellite signals.** For crop burning, air-quality-based activity,
-   crop condition (NDVI), monsoon rainfall, heatwaves, or agricultural drought — signals no
-   statistical agency publishes fast — use `get_geo_data`. Read
+   crop condition (NDVI), monsoon rainfall, heatwaves, or agricultural
+   drought, use `get_geo_data`. Read
    `references/satellite.md` first: it covers the five datasets, region
    syntax, the 50-interval window budget (seasonal comparisons = one call
    per season), cloud-cover caveats, and required attribution. Satellite
