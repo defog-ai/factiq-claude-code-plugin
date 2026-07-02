@@ -87,12 +87,14 @@ Sentinel-5P data…") is a licence requirement, not a courtesy.
 
 ## What this tool is not
 
-- No nighttime lights yet (no provider offers hosted aggregation; a
-  precomputed series is planned — check the catalog before assuming).
 - Not a mapping tool: results are regional aggregates, not rasters or tiles.
-- Shipping/trade activity is NOT here — the `portwatch` SQL schema carries
-  IMF PortWatch's satellite-AIS daily series (chokepoint transits, port calls,
-  import/export estimates); see `references/schemas.md`.
+- Several satellite signals live in the WAREHOUSE instead of this tool, as
+  the `satellite` SQL schema: monthly **nighttime lights** by country/state
+  (precomputed — no hosted aggregation API exists) and **lake/reservoir water
+  levels** from radar altimetry (per-station series; search by reservoir
+  name, e.g. "srisailam"). Shipping/trade activity is the `portwatch` schema
+  (satellite-AIS chokepoint transits, port calls, import/export estimates).
+  See `references/schemas.md`.
 - For anything already in the warehouse (official rainfall indices, IMD data,
   electricity output), prefer the curated series — satellite data complements
   statistics, it doesn't replace them.

@@ -48,6 +48,7 @@ file. Some schemas are admin-only and simply won't appear in your
 | `worldbank` | World Bank | Development and macro indicators by country |
 | `singstat` | Singapore Department of Statistics | Singapore national statistics |
 | `portwatch` | IMF PortWatch (satellite-AIS) | Daily shipping: transit calls + trade capacity for 28 chokepoints (Suez, Hormuz, Malacca…), port calls + import/export volume estimates for 196 countries and 2,065 ports, 2019→, ~3-day lag |
+| `satellite` | NASA / CNES satellite-derived | Monthly nighttime lights by country + state (economic-activity proxy, Asia focus, 2024→); lake & reservoir water levels from radar altimetry (650 water bodies incl. 88 Chinese, 15 major Indian reservoirs, 1990s→, per-overpass) |
 
 ## Picking schemas
 
@@ -61,6 +62,9 @@ file. Some schemas are admin-only and simply won't appear in your
 - Cross-country comparisons → `imf` / `worldbank`
 - Shipping disruptions, chokepoint transits (Suez/Hormuz/Malacca), real-time
   trade activity → `portwatch` (daily, satellite-AIS based; cite IMF PortWatch)
+- Nighttime lights (activity proxy), reservoir/lake water levels (hydropower,
+  irrigation, drought) → `satellite` schema; for on-demand fires/NO2/rainfall/
+  NDVI over arbitrary regions → the `get_geo_data` tool instead
 - Company-specific → `get_market_data` and `search_earnings` tools (not SQL schemas)
 
 HS trade schemas (`us_census_hs` in census, `china_customs`, `india_trade`,
