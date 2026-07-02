@@ -25,6 +25,7 @@ provider can take 5–30 s (rainfall occasionally longer).
 |---|---|---|---|---|
 | `fires_viirs` | Active-fire detections + fire radiative power (NASA FIRMS, VIIRS 375 m) | Crop-residue burning (Punjab/Haryana Oct–Nov, Indonesian burning season), deforestation fires, flaring | 2012→ | ~3 h |
 | `no2_tropomi` | Tropospheric NO₂ column, quality-filtered area mean (Sentinel-5P) | Industrial + power + traffic activity; recessions and lockdowns show up in weeks, not quarters | 2018→ | ~3 days |
+| `ndvi_s2` | Vegetation index NDVI, cloud-masked area mean (Sentinel-2) | Crop condition ahead of harvest statistics — compare the same season across years (sowing → peak canopy → harvest is a normal arc, not a trend) | 2017→ | ~2–5 days |
 | `precip_chirps` | Rainfall, gauge-calibrated satellite (CHIRPS 0.05°) | Monsoon adequacy, drought/flood risk → food prices, rural demand, hydro | 1981→ | ~2 days prelim |
 | `temperature_power` | 2 m air temperature mean/max/min (NASA POWER, MERRA-2 0.5°) | Heatwaves → electricity demand, labour productivity, crop stress | 1981→ | ~3 days |
 | `soil_moisture_power` | Root-zone soil wetness 0–1 (NASA POWER, MERRA-2) | Sowing conditions and agricultural drought ahead of production data | 1981→ | ~3 days |
@@ -58,11 +59,15 @@ At most 50 intervals per call (~4 years monthly, ~7 weeks daily). Patterns:
 
 ## Reading the results honestly
 
-- **`no2_tropomi`: check `valid_obs_share` on every row.** It is the share of
-  pixels with a valid quality-filtered retrieval. Below ~0.2 the mean rests on
-  a handful of clear-sky days — say so if you use it. Fully clouded months
-  (South Asian monsoon: typically Jun–Sep) are **omitted from results** and
-  named in `notes`; never interpolate through them silently.
+- **`no2_tropomi` and `ndvi_s2`: check `valid_obs_share` on every row.** It is
+  the share of pixels with a valid, cloud-free retrieval. Below ~0.2 the mean
+  rests on a handful of clear-sky views — say so if you use it. Fully clouded
+  months (South Asian monsoon: typically Jun–Sep) are **omitted from results**
+  and named in `notes`; never interpolate through them silently.
+- `ndvi_s2` is strongly seasonal: month-over-month moves mix crop cycle with
+  weather. The honest comparison is same-month (or same-season) across years —
+  e.g. Punjab wheat peaks Jan–Feb (~0.65–0.70 NDVI); a weak peak vs prior
+  years is the signal, not the Nov→Feb climb.
 - `fires_viirs` counts overpass detections, not fires put out — cloud cover
   suppresses counts; compare like-for-like seasons, and prefer `total_frp_mw`
   when arguing intensity rather than frequency.
@@ -84,8 +89,10 @@ Sentinel-5P data…") is a licence requirement, not a courtesy.
 
 - No nighttime lights yet (no provider offers hosted aggregation; a
   precomputed series is planned — check the catalog before assuming).
-- No NDVI/crop-condition index yet (planned via the same Copernicus API).
 - Not a mapping tool: results are regional aggregates, not rasters or tiles.
+- Shipping/trade activity is NOT here — the `portwatch` SQL schema carries
+  IMF PortWatch's satellite-AIS daily series (chokepoint transits, port calls,
+  import/export estimates); see `references/schemas.md`.
 - For anything already in the warehouse (official rainfall indices, IMD data,
   electricity output), prefer the curated series — satellite data complements
   statistics, it doesn't replace them.

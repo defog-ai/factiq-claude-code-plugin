@@ -47,6 +47,7 @@ file. Some schemas are admin-only and simply won't appear in your
 | `imf` | International Monetary Fund | Cross-country macro indicators |
 | `worldbank` | World Bank | Development and macro indicators by country |
 | `singstat` | Singapore Department of Statistics | Singapore national statistics |
+| `portwatch` | IMF PortWatch (satellite-AIS) | Daily shipping: transit calls + trade capacity for 28 chokepoints (Suez, Hormuz, Malacca…), port calls + import/export volume estimates for 196 countries and 2,065 ports, 2019→, ~3-day lag |
 
 ## Picking schemas
 
@@ -58,6 +59,8 @@ file. Some schemas are admin-only and simply won't appear in your
   `india_trade` + `korea_trade` cover the same flows from each country's own
   books when those reporters are in scope
 - Cross-country comparisons → `imf` / `worldbank`
+- Shipping disruptions, chokepoint transits (Suez/Hormuz/Malacca), real-time
+  trade activity → `portwatch` (daily, satellite-AIS based; cite IMF PortWatch)
 - Company-specific → `get_market_data` and `search_earnings` tools (not SQL schemas)
 
 HS trade schemas (`us_census_hs` in census, `china_customs`, `india_trade`,
