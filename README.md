@@ -131,7 +131,7 @@ Codex talk to natively over a single OAuth connection.
 └─────────────────────────────┘
 ```
 
-## How it works under the hood
+## Under the hood
 
 The reason a single skill can query BLS unemployment, Chinese customs flows,
 RBI monetary data, and World Bank indicators with the same SQL idioms: **every
@@ -154,7 +154,7 @@ recipes live in [`references/sql-guide.md`](references/sql-guide.md).
 
 | Region | Schemas |
 |---|---|
-| United States | BLS (employment, CPI, JOLTS), OEWS (wages by occupation), Census (trade incl. HS-level, retail, housing), BEA (GDP, income), EIA (energy), USDA ERS, BTS (transportation), earnings-call intelligence |
+| United States | SEC filings data, BLS (employment, CPI, JOLTS, OEWS), Census (trade incl. HS-level, retail, housing), BEA (GDP, income), EIA (energy), USDA ERS, BTS (transportation), earnings-call intelligence |
 | China | NBS macro indicators, GACC customs (HS-level trade) |
 | India | MOSPI (CPI, WPI, IIP, GDP), RBI (banking, rates, forex), DGCI&S trade (HS-level), city traffic |
 | South Korea | KCS customs (HS-level trade) |
