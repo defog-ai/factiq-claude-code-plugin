@@ -1,6 +1,6 @@
-# FactIQ - a realtime updated finance and economy database for AI Agents
+# FactIQ - a real-time finance and economy database for AI Agents
 
-Turn your agent into an finance and economy analyst. This plugin for
+Turn your agent into a finance and economy analyst. This plugin for
 [Claude Code](https://code.claude.com/docs/en/plugins) and
 [Codex](https://github.com/openai/codex) gives the agent direct access to
 FactIQ's warehouse of official statistics — SEC filings, US, China, India, Korea, IMF,
@@ -9,8 +9,12 @@ The agent discovers series, runs read-only SQL on FactIQ's database, computes
 derived metrics, and publishes the result as a shareable FactIQ chart or report, 
 a terminal preview, or a bespoke local HTML visualization.
 
-No codebase or hosted database is required — only a free FactIQ account. You can easily combine
-FactIQ with other skills in your codebase.
+No codebase or hosted database is required — only a free
+[FactIQ account](https://factiq.com).
+
+Want to contribute? The highest-leverage addition is a **domain playbook** that
+teaches the agent a whole class of questions — see
+[Contributing](#contributing).
 
 ## Install
 
@@ -41,7 +45,8 @@ Finally, authenticate the MCP server:
 4. Complete the FactIQ login (email, Google, or passkey) and return to Claude
    Code — the FactIQ tools are now authorized.
 
-#### Enable auto-updates
+<details>
+<summary>Enable auto-updates</summary>
 
 So you always get the latest skill, MCP tools, and commands without
 reinstalling, turn on auto-updates for the marketplace:
@@ -53,6 +58,7 @@ reinstalling, turn on auto-updates for the marketplace:
 
 Claude Code will then refresh the plugin automatically whenever this
 marketplace changes.
+</details>
 
 ### Codex
 
@@ -71,13 +77,17 @@ Complete the browser sign-in (the same FactIQ login: email, Google, or
 passkey). Start a new Codex thread after installation; the skill auto-invokes
 for economic/financial data questions.
 
-To update an existing Codex install after this marketplace changes, refresh the
-configured marketplace name (`factiq`), then reinstall the plugin:
+<details>
+<summary>Update an existing Codex install</summary>
+
+To update after this marketplace changes, refresh the configured marketplace
+name (`factiq`), then reinstall the plugin:
 
 ```bash
 codex plugin marketplace upgrade factiq
 codex plugin add factiq@factiq
 ```
+</details>
 
 <details>
 <summary>Alternative: install as a standalone MCP server (no plugin)</summary>
@@ -101,11 +111,24 @@ claude mcp add --transport http factiq https://api.factiq.com/mcp
 Then authorize with `/mcp`.
 </details>
 
+## Try it
+
+Once installed and authenticated, ask a question:
+
+```
+/factiq:ask How has India's trade deficit with China evolved since 2020?
+```
+
+The agent finds the relevant series, runs the SQL, and replies with a
+shareable factiq.com chart link — or a terminal chart or full report,
+depending on what you ask for. You don't need the slash command: any
+economic or financial data question in a normal Claude Code or Codex
+conversation auto-invokes the skill.
 
 ## How it works
 
 **Your coding agent is the analyst**: it decomposes the question, finds the data, does 
-the math, authors the output, and publishes it - all through tool calls to
+the math, authors the output, and publishes it — all through tool calls to
 the **FactIQ MCP server** (bundled in `.mcp.json`), which Claude Code and
 Codex talk to natively over a single OAuth connection.
 
@@ -126,12 +149,10 @@ Codex talk to natively over a single OAuth connection.
 └──────────────┬──────────────┘
                │
 ┌──────────────▼──────────────┐
-│  FactIQ data warehouse      │      25+ official sources, one schema
+│  FactIQ data warehouse      │      ~20 official sources, one schema
 │  + factiq.com share pages   │      published charts/reports render here
 └─────────────────────────────┘
 ```
-
-## Under the hood
 
 The reason a single skill can query BLS unemployment, Chinese customs flows,
 RBI monetary data, and World Bank indicators with the same SQL idioms: **every
@@ -163,31 +184,33 @@ recipes live in [`references/sql-guide.md`](references/sql-guide.md).
 `references/schemas.md` has the static overview; the `get_data_catalog` tool
 returns the live, authoritative version.
 
-## Contents
+## Repo map
 
-- `.mcp.json` — declares the bundled FactIQ MCP server (Streamable HTTP,
-  OAuth). Read by both Claude Code and Codex plugin loaders.
-- `skills/factiq/SKILL.md` — the skill definition and single source of truth for
-  the workflow. Auto-discovered by both Claude Code and Codex from the `skills/`
-  directory
-- `commands/ask.md` — the `/factiq:ask` slash command (Claude Code)
-- `.agents/plugins/marketplace.json` — Codex marketplace entry for
-  `codex plugin marketplace add defog-ai/factiq-plugin`
-- `scripts/term_chart.py` — stdlib-only renderer that prints ANSI/ASCII
-  terminal previews from normal FactIQ ChartSpec JSON and `share_report` report
-  objects. It supports bar, simple line, and table fallback renderers.
-- `scripts/build_viz.py` — local-only tool to assemble fetched data into a
-  self-contained HTML viz and screenshot it headless for iteration. `save`
-  copies a tool result's raw JSON out of the harness transcript to disk (no
-  retyping) and `assemble` are stdlib-only; `render` installs Playwright +
-  Chromium into `~/.factiq/viz-venv` on first use (no effect on your system
-  Python)
-- `assets/viz-shell.html` — starting-point shell for bespoke visualizations
+Where the behavior lives — the files contributors will touch:
+
+- `skills/factiq/SKILL.md` — the skill definition and single source of truth
+  for the workflow. Auto-discovered by both Claude Code and Codex from the
+  `skills/` directory
 - `references/` — SQL idioms, ChartSpec/report formats, domain playbooks
   (monetary policy, bilateral trade, bilateral economic policy, fiscal-policy
-  revenue), the bespoke-viz guide, and dataset schema overview
+  revenue), the bespoke-viz guide, and the dataset schema overview
+- `commands/ask.md` — the `/factiq:ask` slash command (Claude Code)
+- `scripts/term_chart.py` — stdlib-only renderer that prints ANSI/ASCII
+  terminal previews from FactIQ ChartSpec JSON and `share_report` report
+  objects. It supports bar, simple line, and table fallback renderers
+- `scripts/build_viz.py` — local-only tool that assembles fetched data into a
+  self-contained HTML viz and screenshots it headless for iteration; usage in
+  [`references/viz-guide.md`](references/viz-guide.md)
+- `assets/viz-shell.html` — starting-point shell for bespoke visualizations
+
+Plugin plumbing — you shouldn't need to touch these:
+
+- `.mcp.json` — declares the bundled FactIQ MCP server (Streamable HTTP,
+  OAuth). Read by both Claude Code and Codex plugin loaders
 - `.claude-plugin/` — Claude Code plugin + marketplace manifests
 - `.codex-plugin/` — Codex plugin manifest
+- `.agents/plugins/marketplace.json` — Codex marketplace entry for
+  `codex plugin marketplace add defog-ai/factiq-plugin`
 
 ## Contributing
 
