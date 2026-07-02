@@ -5,16 +5,9 @@ description: >
   (worlddb): US indicators (BLS employment/CPI, BEA GDP, Census trade, EIA
   energy, USDA ERS, BTS transport), international data (China NBS, China
   customs, India MOSPI/RBI/trade, Singapore, IMF, World Bank), stock quotes
-  and fundamentals, commodities/forex, earnings-call intelligence, and
-  satellite-derived data: nighttime lights by country and state, lake and
-  reservoir water levels, daily shipping and port activity (chokepoint
-  transits, port calls, seaborne trade estimates), plus on-demand signals
-  (fire detections/crop burning, NO2 industrial activity, crop-condition
-  NDVI, monsoon rainfall, heatwaves, soil moisture — by country, state, or
-  bounding box). Use
+  and fundamentals, commodities/forex, and earnings-call intelligence. Use
   when the user asks about unemployment, inflation, GDP, trade flows, energy,
-  wages, markets, stubble burning, air quality, monsoon or drought conditions,
-  nighttime lights, reservoir levels, shipping or chokepoint traffic,
+  wages, markets,
   or wants a shareable economic chart or map (country choropleths,
   state/province choropleths, coordinate bubble maps), a terminal chart preview,
   a full multi-section research report, or a bespoke custom visualization or
@@ -115,7 +108,6 @@ All FactIQ tools are MCP tools provided by the `factiq` MCP server.
 | `run_sql` (`schema`, `sql`, `question?`, `explore?`, `auto_retry?`) | Read-only SELECT against one schema. The power tool for joins, pivots, aggregation. |
 | `get_series` (`schema`, `series_id`, `from_year?`, `to_year?`) | Fetch one series — timeseries, tabular, or `COMPOUND::` ids all work. |
 | `get_market_data` (`function`, `symbol?`, `interval?`, `outputsize?`) | Quotes, daily/weekly/monthly series, fundamentals (OVERVIEW, INCOME_STATEMENT, EARNINGS), FX, commodities (WTI, BRENT, GOLD), SYMBOL_SEARCH. |
-| `get_geo_data` (`dataset`, `region`, `start_date`, `end_date`, `aggregation?`) | Satellite-derived signals with no warehouse series: `fires_viirs` (crop burning, ~3h lag), `no2_tropomi` (industrial-activity proxy), `ndvi_s2` (crop condition), `precip_chirps` (rainfall), `temperature_power`, `soil_moisture_power` — aggregated over a country, state (`"India/Punjab"`), or bbox. **Read `references/satellite.md` before first use** — it covers windows (max 50 intervals), the `valid_obs_share` rule, and attribution. |
 | `search_earnings` (`query`, `search_target?`, `company_filter?`, `quarter_filter?`, `limit?`) | Full-text search over earnings-call intelligence. |
 | `get_style_guides` (`guides`) | FactIQ's house-style chart/report/SQL guides (`"chart"`, `"report"`, `"sql"`, or `"all"`). Optional; this skill's `references/` already cover the **publishing** JSON formats — use these guides for extra house-style detail. |
 
@@ -208,10 +200,6 @@ local visualizations**). Local-only; never calls the API.
    prefer short stems like `rare`, not `rare earth`) or exploration SQL
    (`run_sql` with `explore=true`) on the `series` and `dimensions` tables.
    For multi-source stories, actually fetch data from 2+ schemas.
-   Satellite-derived series live in two schemas: `portwatch` (daily shipping —
-   chokepoints, ports, country trade estimates) and `satellite` (nighttime
-   lights by state, lake/reservoir water levels) — see `references/schemas.md`
-   for routing and `references/satellite.md` for the on-demand geo tool.
 
    For broad monetary-policy questions, read `references/monetary-policy.md`
    before fetching; those questions need policy stance, administered rates,
@@ -249,14 +237,7 @@ local visualizations**). Local-only; never calls the API.
    code interpreter in this loop.
 5. **Recent market data.** The DB lags for very recent market/price data — use
    `get_market_data` for current quotes, commodities, and FX.
-6. **Satellite signals.** For crop burning, air-quality-based activity,
-   crop condition (NDVI), monsoon rainfall, heatwaves, or agricultural drought — signals no
-   statistical agency publishes fast — use `get_geo_data`. Read
-   `references/satellite.md` first: it covers the five datasets, region
-   syntax, the 50-interval window budget (seasonal comparisons = one call
-   per season), cloud-cover caveats, and required attribution. Satellite
-   data complements warehouse series; prefer curated series where both exist.
-7. **Publish, render, or build.** Quick-chart mode: build a ChartSpec object
+6. **Publish, render, or build.** Quick-chart mode: build a ChartSpec object
    (see `references/chart-spec.md`) with wide-format data rows, save it to JSON,
    call `share_chart`, then run `term_chart.py render`; return the `share_url`
    and paste the terminal preview into your reply inside a triple-backtick code
@@ -604,9 +585,6 @@ payload from the transcript so you never retype the rows.
   revenue and fiscal-policy questions: aggregate tax/non-tax receipts, tax
   source composition, income-bracket and corporate-size distributional checks,
   non-tax component detail, campaign-promise alignment, and data-gap caveats.
-- `references/satellite.md` — the `get_geo_data` satellite tool: datasets and
-  their economic reading, region syntax and coverage, window budgeting,
-  cloud/quality caveats, attribution requirements, worked example.
 - `references/viz-guide.md` — bespoke local HTML visualizations with
   `build_viz.py`: the assemble/render loop, the `DATA` contract, technique
   selection (ECharts/D3/Canvas/WebGL), a legibility checklist, starter recipes.
