@@ -12,98 +12,6 @@ a terminal preview, or a bespoke local HTML visualization.
 No codebase or hosted database is required — only a free FactIQ account. You can easily combine
 FactIQ with other skills in your codebase.
 
-## How it works
-
-**Your coding agent is the analyst**: it decomposes the question, finds the data, does 
-the math, authors the output, and publishes it - all through tool calls to
-the **FactIQ MCP server** (bundled in `.mcp.json`), which Claude Code and
-Codex talk to natively over a single OAuth connection.
-
-```
-┌─────────────────────────────┐
-│  Claude Code / Codex        │
-│  + factiq skill (SKILL.md)  │      the agent orchestrates everything
-└──────────────┬──────────────┘
-               │  MCP over HTTP (one OAuth connection)
-┌──────────────▼──────────────┐
-│  FactIQ MCP server          │
-│                             │
-│  discover   search_datasets, describe_dataset, search_series,
-│             get_data_catalog
-│  fetch      run_sql (read-only), get_series, get_market_data,
-│             search_earnings
-│  publish    share_chart, share_report
-└──────────────┬──────────────┘
-               │
-┌──────────────▼──────────────┐
-│  FactIQ data warehouse      │      25+ official sources, one schema
-│  + factiq.com share pages   │      published charts/reports render here
-└─────────────────────────────┘
-```
-
-A typical run:
-
-1. **Discover** — `get_data_catalog` once, then `search_datasets` /
-   `describe_dataset` / `search_series` (or exploratory SQL) to find the exact
-   series.
-2. **Fetch** — `run_sql` and `get_series`, capped at 50 rows per result by
-   design. The agent aggregates in SQL (`GROUP BY date_trunc(...)`, ratios,
-   pivots) rather than pulling raw rows — a chart only needs the aggregated
-   result anyway.
-3. **Compute** — YoY growth, rebasing, per-capita, ratios: local Python on the
-   fetched values, in the agent's own context.
-4. **Deliver** — one of four output modes:
-   - **Shareable chart** (`share_chart`) — published to factiq.com as an
-     editable, forkable share link, with an inline terminal preview.
-   - **Detailed report** (`share_report`) — a multi-section research page
-     (summary, narrative + charts, methodology, full SQL lineage) rendered on
-     factiq.com exactly like FactIQ's in-house agent produces.
-   - **Terminal chart** (`scripts/term_chart.py`) — ANSI/ASCII preview, fully
-     local.
-   - **Bespoke local viz** (`scripts/build_viz.py`) — a self-contained HTML
-     file (ECharts, D3, anything) the agent authors, screenshots headlessly,
-     and iterates on.
-
-The local scripts never touch the network; everything else flows through the
-authenticated MCP connection — including publishing, so there is no separate
-API key.
-
-## One schema, every data source
-
-The reason a single skill can query BLS unemployment, Chinese customs flows,
-RBI monetary data, and World Bank indicators with the same SQL idioms: **every
-data source in the backend is normalized into the same three core tables**,
-identical in every schema:
-
-| Table | What it holds |
-|---|---|
-| `series` | The catalog — one row per series: id, title, description, dataset, frequency, units, seasonality, geography, time coverage |
-| `data_points` | The values — `(series_id, time, value)`, indexed for fast retrieval |
-| `dimensions` | Faceted metadata — `(series_id, dimension_type, dimension_code, dimension_name)`, e.g. `partner`, `flow`, `commodity`, `hs_level` for trade data |
-
-Two auxiliary tables round out the model: `tabular_data` (JSONB rows for
-table-shaped releases that aren't clean time series) and `compound_series`
-(curated derived series with `COMPOUND::` ids).
-
-Ingestion pipelines do the hard work of flattening each source's bespoke
-format — BLS flat files, BEA APIs, customs records, RBI releases — into this
-shape, so the agent learns the model once and it works everywhere. Discovery,
-pivoting, and filtering follow the same patterns across all ~20 schemas; the
-recipes live in [`references/sql-guide.md`](references/sql-guide.md).
-
-### What's in the warehouse
-
-| Region | Schemas |
-|---|---|
-| United States | BLS (employment, CPI, JOLTS), OEWS (wages by occupation), Census (trade incl. HS-level, retail, housing), BEA (GDP, income), EIA (energy), USDA ERS, BTS (transportation), earnings-call intelligence |
-| China | NBS macro indicators, GACC customs (HS-level trade) |
-| India | MOSPI (CPI, WPI, IIP, GDP), RBI (banking, rates, forex), DGCI&S trade (HS-level), city traffic |
-| South Korea | KCS customs (HS-level trade) |
-| Global | IMF, World Bank, Singapore SingStat, live market data (quotes, fundamentals, FX, commodities) |
-
-`references/schemas.md` has the static overview; the `get_data_catalog` tool
-returns the live, authoritative version.
-
 ## Install
 
 ### Claude Code
@@ -193,19 +101,67 @@ claude mcp add --transport http factiq https://api.factiq.com/mcp
 Then authorize with `/mcp`.
 </details>
 
-## Authentication
 
-One credential, no keys. The tools live on the FactIQ MCP server, authorized
-over OAuth:
+## How it works
 
-- **Claude Code**: run **`/mcp`**, pick **factiq**, and complete the browser
-  sign-in.
-- **Codex**: run **`codex mcp login factiq`** and complete the browser sign-in.
+**Your coding agent is the analyst**: it decomposes the question, finds the data, does 
+the math, authors the output, and publishes it - all through tool calls to
+the **FactIQ MCP server** (bundled in `.mcp.json`), which Claude Code and
+Codex talk to natively over a single OAuth connection.
 
-The same FactIQ login works everywhere (email, Google, or passkey). The agent
-stores and refreshes the token; there is nothing to paste. If the FactIQ tools
-ever return an auth error, re-authorize to reconnect — the same connection
-covers both data fetching and publishing.
+```
+┌─────────────────────────────┐
+│  Claude Code / Codex        │
+│  + factiq skill (SKILL.md)  │      the agent orchestrates everything
+└──────────────┬──────────────┘
+               │  MCP over HTTP (one OAuth connection)
+┌──────────────▼──────────────┐
+│  FactIQ MCP server          │
+│                             │
+│  discover   search_datasets, describe_dataset, search_series,
+│             get_data_catalog
+│  fetch      run_sql (read-only), get_series, get_market_data,
+│             search_earnings
+│  publish    share_chart, share_report
+└──────────────┬──────────────┘
+               │
+┌──────────────▼──────────────┐
+│  FactIQ data warehouse      │      25+ official sources, one schema
+│  + factiq.com share pages   │      published charts/reports render here
+└─────────────────────────────┘
+```
+
+## How it works under the hood
+
+The reason a single skill can query BLS unemployment, Chinese customs flows,
+RBI monetary data, and World Bank indicators with the same SQL idioms: **every
+data source in the backend is normalized into the same three core tables**,
+identical in every schema:
+
+| Table | What it holds |
+|---|---|
+| `series` | The catalog — one row per series: id, title, description, dataset, frequency, units, seasonality, geography, time coverage |
+| `data_points` | The values — `(series_id, time, value)`, indexed for fast retrieval |
+| `dimensions` | Faceted metadata — `(series_id, dimension_type, dimension_code, dimension_name)`, e.g. `partner`, `flow`, `commodity`, `hs_level` for trade data |
+
+Our ingestion pipelines do the hard work of flattening each source's bespoke
+format — BLS flat files, BEA APIs, customs records, RBI releases — into this
+shape, so the agent learns the model once and it works everywhere. Discovery,
+pivoting, and filtering follow the same patterns across all ~20 schemas; the
+recipes live in [`references/sql-guide.md`](references/sql-guide.md).
+
+### What's in the warehouse
+
+| Region | Schemas |
+|---|---|
+| United States | BLS (employment, CPI, JOLTS), OEWS (wages by occupation), Census (trade incl. HS-level, retail, housing), BEA (GDP, income), EIA (energy), USDA ERS, BTS (transportation), earnings-call intelligence |
+| China | NBS macro indicators, GACC customs (HS-level trade) |
+| India | MOSPI (CPI, WPI, IIP, GDP), RBI (banking, rates, forex), DGCI&S trade (HS-level), city traffic |
+| South Korea | KCS customs (HS-level trade) |
+| Global | IMF, World Bank, Singapore SingStat, live market data (quotes, fundamentals, FX, commodities) |
+
+`references/schemas.md` has the static overview; the `get_data_catalog` tool
+returns the live, authoritative version.
 
 ## Contents
 
@@ -248,8 +204,6 @@ existing ones live in `references/` and are the pattern to follow:
   bank policy stance, administered rates, OMO, balance-sheet context
 - [`references/bilateral-trade.md`](references/bilateral-trade.md) —
   country-pair trade trends, product drivers, mirror-statistics caveats
-- [`references/bilateral-economic-policy.md`](references/bilateral-economic-policy.md)
-  — broad policy comparisons: goods, services, FDI, barriers, talks
 - [`references/fiscal-policy-revenue.md`](references/fiscal-policy-revenue.md)
   — government receipts, tax composition, distributional detail
 
@@ -283,20 +237,11 @@ Test a playbook by running the questions it targets end-to-end through the
 skill and checking the published output; a PR description that shows a
 before/after share link is the most convincing review material.
 
-## Configuration
-
-The bundled MCP server points at `https://api.factiq.com/mcp`. For local
-development against a local backend, edit `.mcp.json` in your development
-checkout or configure a standalone `factiq` MCP server in Codex or Claude Code
-that points at the local URL.
-
 ## Security
 
 No secrets belong in this repo, and the plugin holds none — all access goes
 through the MCP server's OAuth flow, so the coding agent holds the token and
-nothing is written here. All SQL runs read-only against the data warehouse.
-FactIQ is currently free with no monthly usage quota; the backend enforces a
-10 requests/second rate limit as an abuse guard.
+nothing is written here. All SQL runs read-only against FactIQ's data warehouse.
 
 ## License
 
