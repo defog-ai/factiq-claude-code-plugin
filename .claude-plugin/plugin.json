@@ -1,7 +1,7 @@
 {
   "name": "factiq",
   "description": "Answer economic and financial data questions with real data from FactIQ — official statistics, market data, and satellite-derived data (nighttime lights, shipping and port activity, reservoir levels, crop fires, NO2 activity, monsoon rainfall) — publish shareable charts and reports, render terminal previews, or build bespoke local HTML visualizations.",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "author": {
     "name": "Defog"
   },
