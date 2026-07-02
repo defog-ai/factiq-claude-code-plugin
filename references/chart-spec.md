@@ -63,7 +63,46 @@ If the claim depends on a time window, keep the range in the title.
 | `scatter` | Two metrics correlated; needs `yField` |
 | `bubble` | Scatter + a size dimension; needs `yField` + `sizeField`; no date x-axis |
 | `small_multiples` | Same metric across many entities; set `facetField` |
-| `map` | Geographic distribution; needs `mapConfig` `{visualizationType, mapId, geoKey, valueKey}` |
+| `map` | Geographic distribution; needs `mapConfig` — see **Maps** below |
+
+## Maps
+
+Use a map when geography IS the finding (divergence, concentration, spread) —
+for "top N regions" a ranked bar usually reads faster. The base fields
+(`xField`, `series`) are still required; maps additionally take `mapConfig`.
+
+Choropleth (region-shaded):
+
+```json
+{
+  "type": "map",
+  "title": "Delhi is India's brightest state at night — 24x the national mean (Jan 2024)",
+  "xField": {"key": "state", "label": "State"},
+  "series": [{"key": "radiance", "label": "Mean radiance (nW/cm²/sr)"}],
+  "data": [{"state": "Maharashtra", "radiance": 0.79}, {"state": "Delhi", "radiance": 14.5}],
+  "mapConfig": {"visualizationType": "choropleth_gradient",
+                "mapId": "countries/in/in-all",
+                "geoKey": "state", "valueKey": "radiance",
+                "valueLabel": "Mean radiance (nW/cm²/sr)", "labelKey": "state"}
+}
+```
+
+Coordinate bubbles (ports, stations, cities): `visualizationType: "bubble"`
+with `latKey`/`lonKey`/`sizeKey`, empty `geoKey`, `mapId: "custom/world"`.
+
+Rules:
+
+- `mapId`: `custom/world` (countries), `custom/europe`, `countries/us/us-all`,
+  or `countries/<cc>/<cc>-all` for in, cn, id, vn, th, my, ph, pk, bd, lk,
+  mm, kh, np, kr, jp, tw, sg (state/province level).
+- `geoKey` values can be plain names, ISO codes, or Highcharts keys —
+  `share_chart` normalizes them ("Maharashtra", "IND", "in" all work) and a
+  bad value comes back as a validation error with suggestions. If the error
+  says the map draws no feature for a region (world map: Taiwan; India map:
+  Ladakh; Philippines/Sri Lanka maps draw provinces/districts, not regions),
+  drop that row rather than renaming it.
+- One row per region — aggregate first; a region repeated across dates will
+  not animate, it just overwrites.
 
 ## Field reference
 
