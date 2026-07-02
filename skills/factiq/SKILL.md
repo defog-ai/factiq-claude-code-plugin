@@ -11,7 +11,8 @@ description: >
   bounding box). Use
   when the user asks about unemployment, inflation, GDP, trade flows, energy,
   wages, markets, stubble burning, air quality, monsoon or drought conditions,
-  or wants a shareable economic chart, a terminal chart preview,
+  or wants a shareable economic chart or map (country choropleths,
+  state/province choropleths, coordinate bubble maps), a terminal chart preview,
   a full multi-section research report, or a bespoke custom visualization or
   dashboard saved as a local HTML file. You orchestrate the whole analysis
   yourself — discover series, query SQL, compute, then publish a single chart or
@@ -38,7 +39,10 @@ Four output modes:
 - **Quick chart** (`share_chart` tool + `term_chart.py`) — one focused chart
   published to FactIQ as a share link, plus an inline terminal preview rendered
   from the same ChartSpec. Default for questions about a single metric or
-  comparison.
+  comparison. When geography is the finding this includes **maps**:
+  choropleths by country or state/province and coordinate bubbles — see
+  `references/chart-spec.md` (**Maps**) for the format and region-name rules
+  (the terminal preview degrades to a ranked table).
 - **Terminal chart** (`term_chart.py`) — an ANSI/ASCII preview without a share
   link. Use only when the user explicitly asks for terminal-only, ASCII-only, or
   local text output. See **Terminal charts** below.
