@@ -48,7 +48,7 @@ file. Some schemas are admin-only and simply won't appear in your
 | `worldbank` | World Bank | Development and macro indicators by country |
 | `singstat` | Singapore Department of Statistics | Singapore national statistics |
 | `portwatch` | IMF PortWatch (satellite-AIS) | Daily shipping: transit calls + trade capacity for 28 chokepoints (Suez, Hormuz, Malacca…), port calls + import/export volume estimates for 196 countries and 2,065 ports, 2019→, ~3-day lag |
-| `satellite` | NASA / CNES satellite-derived | Monthly nighttime lights by country + state (economic-activity proxy, Asia focus, 2024→); lake & reservoir water levels from radar altimetry (650 water bodies incl. 88 Chinese, 15 major Indian reservoirs, 1990s→, per-overpass). Water-level stations come in two grades (`grade` dimension): `operational` updates ~weekly; `research` stations are frozen scientific archives (many end 2020-22) — always check the series `end_time` before presenting a level as current, and filter to operational for live readings |
+| `satellite` | NASA / CNES satellite-derived | Monthly nighttime lights by country + state (economic-activity proxy, Asia focus, 2019→); lake & reservoir water levels from radar altimetry (650 water bodies incl. 88 Chinese, 15 major Indian reservoirs, 1990s→, per-overpass). Water-level stations come in two grades (`grade` dimension): `operational` updates ~weekly; `research` stations are frozen scientific archives (many end 2020-22) — always check the series `end_time` before presenting a level as current, and filter to operational for live readings |
 
 ## Picking schemas
 
