@@ -157,6 +157,5 @@ that points at the local URL.
 
 No secrets belong in this repo, and the plugin holds none — all access goes
 through the MCP server's OAuth flow, so the coding agent holds the token and
-nothing is written here. The backend enforces a 1 request/second rate limit and
-a monthly tool-call quota per plan (publishing counts against the same quota as
-the data tools).
+nothing is written here. FactIQ is currently free with no monthly usage quota;
+the backend enforces a 10 requests/second rate limit as an abuse guard.
