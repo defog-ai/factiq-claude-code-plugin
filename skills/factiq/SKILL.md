@@ -34,12 +34,21 @@ lookup, market data, earnings search), then publish the result (`share_chart`,
 the data with the MCP tools, do the math with your own tokens, author the
 output, and publish it with a tool call.
 
-Four output modes:
+Five output modes:
 
+- **Direct answer** — a plain-text sentence, no chart and no share link. Use
+  when the question asks for a single current value or a simple scalar lookup
+  where a chart would add nothing: "what's the US unemployment rate right now?",
+  "latest CPI print", "Apple's trailing P/E". Still fetch the value with the MCP
+  tools — only the *presentation* is a sentence. State the number with its
+  period and source (e.g. "US unemployment was 4.1% in May 2026, per BLS.").
+  The moment the question wants a trend, a history, a comparison across
+  categories or entities, a breakdown, or explicitly asks for a chart or report,
+  switch to one of the modes below.
 - **Quick chart** (`share_chart` tool + `term_chart.py`) — one focused chart
   published to FactIQ as a share link, plus an inline terminal preview rendered
-  from the same ChartSpec. Default for questions about a single metric or
-  comparison. When geography is the finding this includes **maps**:
+  from the same ChartSpec. Default for a single metric over time or a
+  comparison across categories or entities. When geography is the finding this includes **maps**:
   choropleths by country or state/province and coordinate bubbles — see
   `references/chart-spec.md` (**Maps**) for the format and region-name rules
   (the terminal preview degrades to a ranked table).
@@ -248,7 +257,10 @@ local visualizations**). Local-only; never calls the API.
    syntax, the 50-interval window budget (seasonal comparisons = one call
    per season), cloud-cover caveats, and required attribution. Satellite
    data complements warehouse series; prefer curated series where both exist.
-7. **Publish, render, or build.** Quick-chart mode: build a ChartSpec object
+7. **Answer, publish, render, or build.** Direct-answer mode: once you have the
+   value, reply with a single sentence stating the number, its period, and the
+   source — no ChartSpec, no `share_chart`, no terminal render. Quick-chart mode:
+   build a ChartSpec object
    (see `references/chart-spec.md`) with wide-format data rows, save it to JSON,
    call `share_chart`, then run `term_chart.py render`; return the `share_url`
    and paste the terminal preview into your reply inside a triple-backtick code
