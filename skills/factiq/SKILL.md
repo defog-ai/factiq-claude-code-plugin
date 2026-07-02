@@ -11,7 +11,8 @@ description: >
   bounding box). Use
   when the user asks about unemployment, inflation, GDP, trade flows, energy,
   wages, markets, stubble burning, air quality, monsoon or drought conditions,
-  or wants a shareable economic chart, a terminal chart preview,
+  or wants a shareable economic chart or map (country choropleths,
+  state/province choropleths, coordinate bubble maps), a terminal chart preview,
   a full multi-section research report, or a bespoke custom visualization or
   dashboard saved as a local HTML file. You orchestrate the whole analysis
   yourself — discover series, query SQL, compute, then publish a single chart or
@@ -38,7 +39,10 @@ Four output modes:
 - **Quick chart** (`share_chart` tool + `term_chart.py`) — one focused chart
   published to FactIQ as a share link, plus an inline terminal preview rendered
   from the same ChartSpec. Default for questions about a single metric or
-  comparison.
+  comparison. When geography is the finding this includes **maps**:
+  choropleths by country or state/province and coordinate bubbles — see
+  `references/chart-spec.md` (**Maps**) for the format and region-name rules
+  (the terminal preview degrades to a ranked table).
 - **Terminal chart** (`term_chart.py`) — an ANSI/ASCII preview without a share
   link. Use only when the user explicitly asks for terminal-only, ASCII-only, or
   local text output. See **Terminal charts** below.
@@ -107,7 +111,7 @@ All FactIQ tools are MCP tools provided by the `factiq` MCP server.
 | `run_sql` (`schema`, `sql`, `question?`, `explore?`, `auto_retry?`) | Read-only SELECT against one schema. The power tool for joins, pivots, aggregation. |
 | `get_series` (`schema`, `series_id`, `from_year?`, `to_year?`) | Fetch one series — timeseries, tabular, or `COMPOUND::` ids all work. |
 | `get_market_data` (`function`, `symbol?`, `interval?`, `outputsize?`) | Quotes, daily/weekly/monthly series, fundamentals (OVERVIEW, INCOME_STATEMENT, EARNINGS), FX, commodities (WTI, BRENT, GOLD), SYMBOL_SEARCH. |
-| `get_geo_data` (`dataset`, `region`, `start_date`, `end_date`, `aggregation?`) | Satellite-derived signals with no warehouse series: `fires_viirs` (crop burning, ~3h lag), `no2_tropomi` (industrial-activity proxy), `precip_chirps` (rainfall), `temperature_power`, `soil_moisture_power` — aggregated over a country, state (`"India/Punjab"`), or bbox. **Read `references/satellite.md` before first use** — it covers windows (max 50 intervals), the `valid_obs_share` rule, and attribution. |
+| `get_geo_data` (`dataset`, `region`, `start_date`, `end_date`, `aggregation?`) | Satellite-derived signals with no warehouse series: `fires_viirs` (crop burning, ~3h lag), `no2_tropomi` (industrial-activity proxy), `ndvi_s2` (crop condition), `precip_chirps` (rainfall), `temperature_power`, `soil_moisture_power` — aggregated over a country, state (`"India/Punjab"`), or bbox. **Read `references/satellite.md` before first use** — it covers windows (max 50 intervals), the `valid_obs_share` rule, and attribution. |
 | `search_earnings` (`query`, `search_target?`, `company_filter?`, `quarter_filter?`, `limit?`) | Full-text search over earnings-call intelligence. |
 | `get_style_guides` (`guides`) | FactIQ's house-style chart/report/SQL guides (`"chart"`, `"report"`, `"sql"`, or `"all"`). Optional; this skill's `references/` already cover the **publishing** JSON formats — use these guides for extra house-style detail. |
 
@@ -238,7 +242,7 @@ local visualizations**). Local-only; never calls the API.
 5. **Recent market data.** The DB lags for very recent market/price data — use
    `get_market_data` for current quotes, commodities, and FX.
 6. **Satellite signals.** For crop burning, air-quality-based activity,
-   monsoon rainfall, heatwaves, or agricultural drought — signals no
+   crop condition (NDVI), monsoon rainfall, heatwaves, or agricultural drought — signals no
    statistical agency publishes fast — use `get_geo_data`. Read
    `references/satellite.md` first: it covers the five datasets, region
    syntax, the 50-interval window budget (seasonal comparisons = one call

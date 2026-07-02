@@ -47,7 +47,11 @@ model name.
 `chart_type`: `line | bar | table | bubble | small_multiples | stacked_area
 | map | heatmap`. **Stick to `line`, `bar`, and `table`** — they take the
 simple tabular format below. The other types pass through with the in-house
-agent's full hydrated config structure, which is not documented here.
+agent's full hydrated config structure, which is not documented here. For a
+geographic finding, publish the map as its own `share_chart` (fully supported
+— see `references/chart-spec.md`, **Maps**) and reference its share link from
+the section narrative, rather than embedding an undocumented map structure in
+the report.
 
 Tabular chart fields:
 
